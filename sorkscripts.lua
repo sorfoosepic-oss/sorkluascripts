@@ -1,135 +1,70 @@
 --// ====================================================
---// SORKSCRIPTS | CRECER POLLO | V3.1 - FIXED
+--// SORKSCRIPTS | CRECER POLLO | V1.0
 --// Estilo Vertex (Oscuro + Acento Morado)
 --// Compatible con Delta Mobile & Roblox Studio
 --// ====================================================
-
-repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-
 local LocalPlayer = Players.LocalPlayer
 local PlayerCharacter = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
 -- ====================================================
--- CONFIGURACIÓN DE COLORES
+-- CONFIGURACIÓN DE COLORES (VERTEX STYLE)
 -- ====================================================
 
 local CONFIG = {
-    Background = Color3.fromRGB(15, 15, 20),
-    Sidebar = Color3.fromRGB(20, 20, 28),
-    Card = Color3.fromRGB(28, 28, 38),
-    CardHover = Color3.fromRGB(35, 35, 48),
-    Accent = Color3.fromRGB(145, 70, 255),
-    AccentDark = Color3.fromRGB(110, 50, 200),
-    AccentLight = Color3.fromRGB(180, 120, 255),
-    Text = Color3.fromRGB(235, 235, 240),
-    TextDim = Color3.fromRGB(140, 140, 155),
-    ToggleOn = Color3.fromRGB(145, 70, 255),
-    ToggleOff = Color3.fromRGB(50, 50, 65),
-    Success = Color3.fromRGB(52, 168, 83),
-    Warning = Color3.fromRGB(255, 193, 7),
-    Error = Color3.fromRGB(244, 67, 54),
-    Gradient1 = Color3.fromRGB(145, 70, 255),
-    Gradient2 = Color3.fromRGB(70, 40, 180),
+	Background = Color3.fromRGB(18, 18, 22),
+	Sidebar = Color3.fromRGB(24, 24, 28),
+	Card = Color3.fromRGB(30, 30, 35),
+	CardHover = Color3.fromRGB(38, 38, 45),
+	Accent = Color3.fromRGB(145, 70, 255),
+	AccentDark = Color3.fromRGB(110, 50, 200),
+	Text = Color3.fromRGB(235, 235, 240),
+	TextDim = Color3.fromRGB(140, 140, 150),
+	ToggleOn = Color3.fromRGB(145, 70, 255),
+	ToggleOff = Color3.fromRGB(60, 60, 70),
+	Success = Color3.fromRGB(52, 168, 83),
+	Warning = Color3.fromRGB(255, 193, 7),
+	Error = Color3.fromRGB(244, 67, 54),
 }
 
 -- ====================================================
--- VARIABLES GLOBALES
+-- VARIABLES GLOBALES DEL SCRIPT
 -- ====================================================
 
 local ScriptState = {
-    AutoFarm = false,
-    AutoCollectEggs = false,
-    AutoHatch = false,
-    AutoSell = false,
-    AutoFight = false,
-    AutoClimbTower = false,
-    AutoFuse = false,
-    InfiniteJump = false,
-    ESPChickens = false,
-    ESPEggs = false,
-    AutoRejoin = false,
-    AntiAFK = true,
+	AutoFarm = false,
+	AutoCollectEggs = false,
+	AutoHatch = false,
+	AutoSell = false,
+	AutoFight = false,
+	AutoClimbTower = false,
+	AutoFuse = false,
+	WalkSpeed = false,
+	JumpPower = false,
+	InfiniteJump = false,
+	ESPChickens = false,
+	ESPEggs = false,
+	AutoRejoin = false,
+	AntiAFK = true,
 }
 
 local ScriptActive = true
 local DefaultWalkSpeed = 16
 local DefaultJumpPower = 50
-local RemoteCache = {}
-
--- ====================================================
--- SISTEMA DE LOGGING
--- ====================================================
-
-local function Log(message, type)
-    type = type or "INFO"
-    local prefix = {
-        INFO = "ℹ️",
-        SUCCESS = "✅",
-        WARNING = "⚠️",
-        ERROR = "❌",
-        DEBUG = "🔍",
-    }
-    print("[Sorkscripts] " .. (prefix[type] or "•") .. " " .. message)
-end
-
--- ====================================================
--- FUNCIÓN PARA ENCONTRAR REMOTES (SIMPLIFICADA)
--- ====================================================
-
-local function FindRemote(name)
-    -- Buscar directamente
-    local remote = ReplicatedStorage:FindFirstChild(name)
-    if remote then
-        return remote
-    end
-    
-    -- Buscar en carpetas comunes
-    local folders = {"Remotes", "RemoteEvents", "Events", "Functions", "RemoteFunctions"}
-    
-    for _, folderName in ipairs(folders) do
-        local folder = ReplicatedStorage:FindFirstChild(folderName)
-        if folder then
-            remote = folder:FindFirstChild(name)
-            if remote then
-                return remote
-            end
-        end
-    end
-    
-    return nil
-end
-
-local function SafeFire(remote, ...)
-    if not remote then return false end
-    
-    local ok, err = pcall(function()
-        if remote:IsA("RemoteEvent") then
-            remote:FireServer(...)
-        elseif remote:IsA("RemoteFunction") then
-            remote:InvokeServer(...)
-        end
-    end)
-    
-    return ok
-end
 
 -- ====================================================
 -- LIMPIAR GUI ANTERIOR
 -- ====================================================
 
 pcall(function()
-    if CoreGui:FindFirstChild("Sorkscripts") then
-        CoreGui.Sorkscripts:Destroy()
-    end
+	if CoreGui:FindFirstChild("Sorkscripts") then
+		CoreGui.Sorkscripts:Destroy()
+	end
 end)
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -139,602 +74,7 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = CoreGui
 
 -- ====================================================
--- FUNCIÓN PRINCIPAL DE CREACIÓN DE UI
--- ====================================================
-
-local function CreateMainUI()
-    Log("Creando interfaz principal...", "INFO")
-    
-    -- Botón flotante
-    local Toggle = Instance.new("ImageButton")
-    Toggle.Name = "FloatingToggle"
-    Toggle.Size = UDim2.new(0, 60, 0, 60)
-    Toggle.Position = UDim2.new(0, 20, 0.42, 0)
-    Toggle.BackgroundColor3 = CONFIG.Accent
-    Toggle.Image = "rbxassetid://0"
-    Toggle.ScaleType = Enum.ScaleType.Crop
-    Toggle.Parent = ScreenGui
-    Toggle.ZIndex = 100
-    
-    Instance.new("UICorner", Toggle).CornerRadius = UDim.new(1, 0)
-    
-    local toggleStroke = Instance.new("UIStroke", Toggle)
-    toggleStroke.Color = Color3.fromRGB(255, 255, 255)
-    toggleStroke.Thickness = 2
-    toggleStroke.Transparency = 0.5
-    
-    -- Texto del botón
-    local toggleText = Instance.new("TextLabel")
-    toggleText.Size = UDim2.new(1, 0, 1, 0)
-    toggleText.BackgroundTransparency = 1
-    toggleText.Text = "🐔"
-    toggleText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleText.Font = Enum.Font.GothamBold
-    toggleText.TextSize = 28
-    toggleText.Parent = Toggle
-    
-    -- Frame principal
-    local Main = Instance.new("Frame")
-    Main.Name = "MainUI"
-    Main.Size = UDim2.new(0, 550, 0, 420)
-    Main.Position = UDim2.new(0.5, -275, 0.5, -210)
-    Main.BackgroundColor3 = CONFIG.Background
-    Main.BorderSizePixel = 0
-    Main.Parent = ScreenGui
-    Main.ZIndex = 50
-    Main.Visible = false  -- Inicialmente oculto
-    
-    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
-    
-    local mainStroke = Instance.new("UIStroke", Main)
-    mainStroke.Color = CONFIG.Accent
-    mainStroke.Thickness = 1.5
-    mainStroke.Transparency = 0.5
-    
-    -- Header
-    local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 45)
-    Header.BackgroundColor3 = CONFIG.Sidebar
-    Header.BorderSizePixel = 0
-    Header.Parent = Main
-    
-    Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
-    
-    local HeaderTitle = Instance.new("TextLabel")
-    HeaderTitle.Size = UDim2.new(0.7, 0, 1, 0)
-    HeaderTitle.Position = UDim2.new(0, 15, 0, 0)
-    HeaderTitle.BackgroundTransparency = 1
-    HeaderTitle.Text = "🐔 Crecer Pollo v3.1"
-    HeaderTitle.TextColor3 = CONFIG.Accent
-    HeaderTitle.Font = Enum.Font.GothamBold
-    HeaderTitle.TextSize = 18
-    HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-    HeaderTitle.Parent = Header
-    
-    -- Botón cerrar
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-    CloseBtn.Position = UDim2.new(1, -40, 0, 7)
-    CloseBtn.BackgroundColor3 = CONFIG.Error
-    CloseBtn.Text = "✕"
-    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.TextSize = 14
-    CloseBtn.ZIndex = 100
-    CloseBtn.Parent = Main
-    
-    Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-    
-    CloseBtn.MouseButton1Click:Connect(function()
-        Main.Visible = false
-    end)
-    
-    -- Contenedor de pestañas
-    local TabContainer = Instance.new("Frame")
-    TabContainer.Size = UDim2.new(0, 120, 1, -45)
-    TabContainer.Position = UDim2.new(0, 0, 0, 45)
-    TabContainer.BackgroundColor3 = CONFIG.Sidebar
-    TabContainer.BorderSizePixel = 0
-    TabContainer.Parent = Main
-    
-    -- Contenido
-    local ContentContainer = Instance.new("Frame")
-    ContentContainer.Size = UDim2.new(1, -120, 1, -45)
-    ContentContainer.Position = UDim2.new(0, 120, 0, 45)
-    ContentContainer.BackgroundColor3 = CONFIG.Background
-    ContentContainer.BorderSizePixel = 0
-    ContentContainer.Parent = Main
-    
-    -- Pestañas
-    local tabs = {
-        {Name = "Farm", Icon = "🐔"},
-        {Name = "Player", Icon = "👤"},
-        {Name = "ESP", Icon = "👁️"},
-        {Name = "Config", Icon = "⚙️"},
-    }
-    
-    local currentTab = "Farm"
-    local tabFrames = {}
-    
-    -- Crear pestañas
-    for i, tab in ipairs(tabs) do
-        local tabBtn = Instance.new("TextButton")
-        tabBtn.Size = UDim2.new(1, 0, 0, 40)
-        tabBtn.Position = UDim2.new(0, 0, 0, (i-1) * 40)
-        tabBtn.BackgroundColor3 = i == 1 and CONFIG.Accent or Color3.fromRGB(0, 0, 0)
-        tabBtn.BackgroundTransparency = i == 1 and 0.3 or 0.7
-        tabBtn.Text = tab.Icon .. " " .. tab.Name
-        tabBtn.TextColor3 = i == 1 and CONFIG.Text or CONFIG.TextDim
-        tabBtn.Font = Enum.Font.Gotham
-        tabBtn.TextSize = 13
-        tabBtn.Parent = TabContainer
-        
-        -- Frame de contenido para esta pestaña
-        local tabFrame = Instance.new("ScrollingFrame")
-        tabFrame.Size = UDim2.new(1, -20, 1, -20)
-        tabFrame.Position = UDim2.new(0, 10, 0, 10)
-        tabFrame.BackgroundTransparency = 1
-        tabFrame.ScrollBarThickness = 3
-        tabFrame.ScrollBarImageColor3 = CONFIG.Accent
-        tabFrame.Visible = (i == 1)
-        tabFrame.Parent = ContentContainer
-        
-        local tabList = Instance.new("UIListLayout", tabFrame)
-        tabList.Padding = UDim.new(0, 8)
-        tabList.SortOrder = Enum.SortOrder.LayoutOrder
-        
-        tabFrames[tab.Name] = tabFrame
-        
-        -- Función para cambiar pestaña
-        tabBtn.MouseButton1Click:Connect(function()
-            currentTab = tab.Name
-            
-            -- Actualizar botones
-            for j, otherTab in ipairs(tabs) do
-                local btn = TabContainer:FindFirstChild(tab.Name .. "Btn") or TabContainer:GetChildren()[j + 1]
-                if btn and btn:IsA("TextButton") then
-                    btn.BackgroundColor3 = j == i and CONFIG.Accent or Color3.fromRGB(0, 0, 0)
-                    btn.BackgroundTransparency = j == i and 0.3 or 0.7
-                    btn.TextColor3 = j == i and CONFIG.Text or CONFIG.TextDim
-                end
-            end
-            
-            -- Mostrar frame correcto
-            for name, frame in pairs(tabFrames) do
-                frame.Visible = (name == tab.Name)
-            end
-        end)
-        
-        tabBtn.Name = tab.Name .. "Btn"
-    end
-    
-    -- ===== FUNCIÓN PARA CREAR TOGGLE =====
-    
-    local function CreateToggle(parent, text, default, callback)
-        local holder = Instance.new("Frame")
-        holder.Size = UDim2.new(1, -10, 0, 40)
-        holder.BackgroundColor3 = CONFIG.Card
-        holder.BorderSizePixel = 0
-        holder.Parent = parent
-        
-        Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 8)
-        
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, -60, 1, 0)
-        label.Position = UDim2.new(0, 12, 0, 0)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = CONFIG.Text
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 13
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = holder
-        
-        local toggle = Instance.new("TextButton")
-        toggle.Size = UDim2.new(0, 44, 0, 24)
-        toggle.Position = UDim2.new(1, -54, 0.5, -12)
-        toggle.BackgroundColor3 = default and CONFIG.ToggleOn or CONFIG.ToggleOff
-        toggle.Text = ""
-        toggle.Parent = holder
-        
-        Instance.new("UICorner", toggle).CornerRadius = UDim.new(1, 0)
-        
-        local circle = Instance.new("Frame")
-        circle.Size = UDim2.new(0, 18, 0, 18)
-        circle.Position = default and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-        circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        circle.Parent = toggle
-        
-        Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
-        
-        local state = default
-        
-        toggle.MouseButton1Click:Connect(function()
-            state = not state
-            
-            TweenService:Create(toggle, TweenInfo.new(0.2), {
-                BackgroundColor3 = state and CONFIG.ToggleOn or CONFIG.ToggleOff
-            }):Play()
-            
-            TweenService:Create(circle, TweenInfo.new(0.2), {
-                Position = state and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-            }):Play()
-            
-            if callback then
-                callback(state)
-            end
-        end)
-        
-        return holder
-    end
-    
-    -- ===== FUNCIÓN PARA CREAR SLIDER =====
-    
-    local function CreateSlider(parent, text, min, max, default, callback)
-        local holder = Instance.new("Frame")
-        holder.Size = UDim2.new(1, -10, 0, 50)
-        holder.BackgroundColor3 = CONFIG.Card
-        holder.BorderSizePixel = 0
-        holder.Parent = parent
-        
-        Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 8)
-        
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.6, 0, 0, 20)
-        label.Position = UDim2.new(0, 12, 0, 5)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = CONFIG.Text
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 12
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = holder
-        
-        local value = Instance.new("TextLabel")
-        value.Size = UDim2.new(0.3, 0, 0, 20)
-        value.Position = UDim2.new(0.7, -20, 0, 5)
-        value.BackgroundTransparency = 1
-        value.Text = tostring(default)
-        value.TextColor3 = CONFIG.Accent
-        value.Font = Enum.Font.GothamBold
-        value.TextSize = 12
-        value.TextXAlignment = Enum.TextXAlignment.Right
-        value.Parent = holder
-        
-        local sliderBG = Instance.new("Frame")
-        sliderBG.Size = UDim2.new(1, -24, 0, 4)
-        sliderBG.Position = UDim2.new(0, 12, 0, 32)
-        sliderBG.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-        sliderBG.BorderSizePixel = 0
-        sliderBG.Parent = holder
-        
-        Instance.new("UICorner", sliderBG).CornerRadius = UDim.new(1, 0)
-        
-        local sliderFill = Instance.new("Frame")
-        sliderFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-        sliderFill.BackgroundColor3 = CONFIG.Accent
-        sliderFill.BorderSizePixel = 0
-        sliderFill.Parent = sliderBG
-        
-        Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
-        
-        local sliderButton = Instance.new("TextButton")
-        sliderButton.Size = UDim2.new(0, 12, 0, 12)
-        sliderButton.Position = UDim2.new((default - min) / (max - min), -6, 0.5, -6)
-        sliderButton.BackgroundColor3 = CONFIG.Accent
-        sliderButton.Text = ""
-        sliderButton.Parent = sliderBG
-        
-        Instance.new("UICorner", sliderButton).CornerRadius = UDim.new(1, 0)
-        
-        local dragging = false
-        
-        sliderButton.MouseButton1Down:Connect(function()
-            dragging = true
-        end)
-        
-        UserInputService.InputEnded:Connect(function()
-            dragging = false
-        end)
-        
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local mousePos = UserInputService:GetMouseLocation()
-                local sliderPos = sliderBG.AbsolutePosition.X
-                local sliderSize = sliderBG.AbsoluteSize.X
-                local relativePos = math.clamp((mousePos.X - sliderPos) / sliderSize, 0, 1)
-                
-                local newValue = math.round(min + (relativePos * (max - min)))
-                
-                sliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
-                sliderButton.Position = UDim2.new(relativePos, -6, 0.5, -6)
-                value.Text = tostring(newValue)
-                
-                if callback then
-                    callback(newValue)
-                end
-            end
-        end)
-        
-        return holder
-    end
-    
-    -- ===== CONTENIDO DE PESTAÑAS =====
-    
-    -- FARM TAB
-    CreateToggle(tabFrames["Farm"], "🚀 Auto Farm", false, function(state)
-        ScriptState.AutoFarm = state
-        if state then
-            Log("Auto Farm activado", "SUCCESS")
-            coroutine.wrap(function()
-                while ScriptState.AutoFarm and ScriptActive do
-                    task.wait(0.5)
-                    pcall(function()
-                        if PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
-                            -- Buscar pollos
-                            for _, obj in pairs(Workspace:GetChildren()) do
-                                if obj:IsA("Model") and obj.Name:lower():find("chicken") then
-                                    local root = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
-                                    if root then
-                                        PlayerCharacter.HumanoidRootPart.CFrame = root.CFrame + Vector3.new(0, 3, 0)
-                                        task.wait(0.2)
-                                    end
-                                end
-                            end
-                        end
-                    end)
-                end
-            end)()
-        end
-    end)
-    
-    CreateToggle(tabFrames["Farm"], "🥚 Auto Collect Eggs", false, function(state)
-        ScriptState.AutoCollectEggs = state
-        if state then
-            Log("Auto Collect Eggs activado", "SUCCESS")
-            coroutine.wrap(function()
-                while ScriptState.AutoCollectEggs and ScriptActive do
-                    task.wait(0.3)
-                    pcall(function()
-                        if PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
-                            -- Buscar huevos
-                            for _, obj in pairs(Workspace:GetDescendants()) do
-                                if obj:IsA("BasePart") and obj.Name:lower():find("egg") then
-                                    PlayerCharacter.HumanoidRootPart.CFrame = obj.CFrame + Vector3.new(0, 3, 0)
-                                    task.wait(0.2)
-                                end
-                            end
-                        end
-                    end)
-                end
-            end)()
-        end
-    end)
-    
-    CreateToggle(tabFrames["Farm"], "🐣 Auto Hatch", false, function(state)
-        ScriptState.AutoHatch = state
-        if state then
-            Log("Auto Hatch activado", "SUCCESS")
-            local hatchRemote = FindRemote("HatchEgg") or FindRemote("Hatch")
-            if hatchRemote then
-                SafeFire(hatchRemote)
-            end
-        end
-    end)
-    
-    CreateToggle(tabFrames["Farm"], "💰 Auto Sell", false, function(state)
-        ScriptState.AutoSell = state
-        if state then
-            Log("Auto Sell activado", "SUCCESS")
-            local sellRemote = FindRemote("Sell") or FindRemote("SellChicken")
-            if sellRemote then
-                SafeFire(sellRemote)
-            end
-        end
-    end)
-    
-    -- PLAYER TAB
-    CreateSlider(tabFrames["Player"], "👟 Walk Speed", 10, 200, DefaultWalkSpeed, function(value)
-        DefaultWalkSpeed = value
-        pcall(function()
-            if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
-                PlayerCharacter.Humanoid.WalkSpeed = value
-            end
-        end)
-    end)
-    
-    CreateSlider(tabFrames["Player"], "📈 Jump Power", 20, 300, DefaultJumpPower, function(value)
-        DefaultJumpPower = value
-        pcall(function()
-            if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
-                PlayerCharacter.Humanoid.JumpPower = value
-            end
-        end)
-    end)
-    
-    CreateToggle(tabFrames["Player"], "♾️ Infinite Jump", false, function(state)
-        ScriptState.InfiniteJump = state
-        if state then
-            Log("Infinite Jump activado", "SUCCESS")
-        end
-    end)
-    
-    -- ESP TAB
-    CreateToggle(tabFrames["ESP"], "🐔 ESP Chickens", false, function(state)
-        ScriptState.ESPChickens = state
-        if state then
-            Log("ESP Chickens activado", "SUCCESS")
-            -- Implementar ESP simple
-            coroutine.wrap(function()
-                while ScriptState.ESPChickens and ScriptActive do
-                    task.wait(1)
-                    pcall(function()
-                        for _, obj in pairs(Workspace:GetChildren()) do
-                            if obj:IsA("Model") and obj.Name:lower():find("chicken") then
-                                if not obj:FindFirstChild("ESP_Highlight") then
-                                    local highlight = Instance.new("Highlight")
-                                    highlight.Name = "ESP_Highlight"
-                                    highlight.FillColor = CONFIG.Accent
-                                    highlight.FillTransparency = 0.5
-                                    highlight.Parent = obj
-                                end
-                            end
-                        end
-                    end)
-                end
-            end)()
-        end
-    end)
-    
-    CreateToggle(tabFrames["ESP"], "🥚 ESP Eggs", false, function(state)
-        ScriptState.ESPEggs = state
-        if state then
-            Log("ESP Eggs activado", "SUCCESS")
-        end
-    end)
-    
-    -- CONFIG TAB
-    CreateToggle(tabFrames["Config"], "🛡️ Anti AFK", true, function(state)
-        ScriptState.AntiAFK = state
-        if state then
-            Log("Anti AFK activado", "SUCCESS")
-        end
-    end)
-    
-    CreateToggle(tabFrames["Config"], "🔄 Auto Rejoin", false, function(state)
-        ScriptState.AutoRejoin = state
-        if state then
-            Log("Auto Rejoin activado", "SUCCESS")
-        end
-    end)
-    
-    -- Botón de destrucción total
-    local ExitBtn = Instance.new("TextButton")
-    ExitBtn.Size = UDim2.new(0, 30, 0, 30)
-    ExitBtn.Position = UDim2.new(1, -40, 1, -40)
-    ExitBtn.BackgroundColor3 = CONFIG.Warning
-    ExitBtn.Text = "⏹️"
-    ExitBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    ExitBtn.Font = Enum.Font.GothamBold
-    ExitBtn.TextSize = 14
-    ExitBtn.ZIndex = 100
-    ExitBtn.Parent = Main
-    
-    Instance.new("UICorner", ExitBtn).CornerRadius = UDim.new(0, 6)
-    
-    ExitBtn.MouseButton1Click:Connect(function()
-        Log("Cerrando Sorkscripts...", "WARNING")
-        ScriptActive = false
-        
-        -- Desactivar todos los sistemas
-        for key, _ in pairs(ScriptState) do
-            ScriptState[key] = false
-        end
-        
-        -- Destruir GUI
-        pcall(function()
-            ScreenGui:Destroy()
-        end)
-        
-        Log("Sorkscripts cerrado correctamente ✅", "SUCCESS")
-    end)
-    
-    -- ===== FUNCIONALIDAD DEL BOTÓN FLOTANTE =====
-    
-    Toggle.MouseButton1Click:Connect(function()
-        Main.Visible = not Main.Visible
-    end)
-    
-    -- ===== SISTEMA DE ARRASTRE =====
-    
-    local draggingMain = false
-    local dragStartMain = nil
-    local startPosMain = nil
-    
-    -- Hacer el header arrastrable
-    Header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            draggingMain = true
-            dragStartMain = input.Position
-            startPosMain = Main.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    draggingMain = false
-                end
-            end)
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if draggingMain and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStartMain
-            Main.Position = UDim2.new(startPosMain.X.Scale, startPosMain.X.Offset + delta.X, startPosMain.Y.Scale, startPosMain.Y.Offset + delta.Y)
-        end
-    end)
-    
-    -- Arrastrar botón flotante
-    local draggingBtn = false
-    local dragStartBtn = nil
-    local startPosBtn = nil
-    
-    Toggle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            draggingBtn = true
-            dragStartBtn = input.Position
-            startPosBtn = Toggle.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    draggingBtn = false
-                end
-            end)
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if draggingBtn and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStartBtn
-            Toggle.Position = UDim2.new(startPosBtn.X.Scale, startPosBtn.X.Offset + delta.X, startPosBtn.Y.Scale, startPosBtn.Y.Offset + delta.Y)
-        end
-    end)
-    
-    -- ===== ANTI-AFK =====
-    
-    coroutine.wrap(function()
-        while ScriptActive do
-            task.wait(60) -- Cada minuto
-            if ScriptState.AntiAFK then
-                pcall(function()
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, nil)
-                    task.wait(0.1)
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, nil)
-                end)
-            end
-        end
-    end)()
-    
-    -- ===== MANEJAR RESPAWN =====
-    
-    LocalPlayer.CharacterAdded:Connect(function(char)
-        PlayerCharacter = char
-        task.wait(1)
-        
-        -- Restaurar configuración
-        pcall(function()
-            if char:FindFirstChild("Humanoid") then
-                char.Humanoid.WalkSpeed = DefaultWalkSpeed
-                char.Humanoid.JumpPower = DefaultJumpPower
-            end
-        end)
-    end)
-    
-    Log("Sorkscripts | Crecer Pollo v3.1 cargado correctamente ✅", "SUCCESS")
-    Log("¡Haz clic en el botón flotante 🐔 para abrir el menú!", "INFO")
-end
-
--- ====================================================
--- PANTALLA DE CARGA SIMPLE
+-- PANTALLA DE CARGA MEJORADA
 -- ====================================================
 
 local Loading = Instance.new("Frame")
@@ -743,9 +83,16 @@ Loading.BackgroundColor3 = CONFIG.Background
 Loading.BorderSizePixel = 0
 Loading.Parent = ScreenGui
 
+-- Fondo con gradiente simulado
+local GradientBG = Instance.new("Frame")
+GradientBG.Size = UDim2.new(1, 0, 1, 0)
+GradientBG.BackgroundColor3 = CONFIG.Background
+GradientBG.BorderSizePixel = 0
+GradientBG.Parent = Loading
+
 local Welcome = Instance.new("TextLabel")
-Welcome.Size = UDim2.new(1, 0, 0, 60)
-Welcome.Position = UDim2.new(0, 0, 0.45, 0)
+Welcome.Size = UDim2.new(1, 0, 0, 50)
+Welcome.Position = UDim2.new(0, 0, 0.35, 0)
 Welcome.BackgroundTransparency = 1
 Welcome.Text = "🔮 SORKSCRIPTS"
 Welcome.TextColor3 = CONFIG.Accent
@@ -753,34 +100,944 @@ Welcome.Font = Enum.Font.GothamBold
 Welcome.TextSize = 32
 Welcome.Parent = Loading
 
-local LoadingText = Instance.new("TextLabel")
-LoadingText.Size = UDim2.new(1, 0, 0, 30)
-LoadingText.Position = UDim2.new(0, 0, 0.5, 0)
-LoadingText.BackgroundTransparency = 1
-LoadingText.Text = "Cargando..."
-LoadingText.TextColor3 = CONFIG.TextDim
-LoadingText.Font = Enum.Font.Gotham
-LoadingText.TextSize = 16
-LoadingText.Parent = Loading
+local UserLabel = Instance.new("TextLabel")
+UserLabel.Size = UDim2.new(1, 0, 0, 30)
+UserLabel.Position = UDim2.new(0, 0, 0.42, 0)
+UserLabel.BackgroundTransparency = 1
+UserLabel.Text = "Bienvenido, " .. LocalPlayer.Name
+UserLabel.TextColor3 = CONFIG.Text
+UserLabel.Font = Enum.Font.Gotham
+UserLabel.TextSize = 18
+UserLabel.Parent = Loading
 
--- Crear UI principal después de un breve delay
-task.wait(2)
+local GameLabel = Instance.new("TextLabel")
+GameLabel.Size = UDim2.new(1, 0, 0, 20)
+GameLabel.Position = UDim2.new(0, 0, 0.47, 0)
+GameLabel.BackgroundTransparency = 1
+GameLabel.Text = "Crecer Pollo v1.0"
+GameLabel.TextColor3 = CONFIG.TextDim
+GameLabel.Font = Enum.Font.Gotham
+GameLabel.TextSize = 14
+GameLabel.Parent = Loading
 
--- Desvanecer pantalla de carga
-local fade = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-TweenService:Create(Loading, fade, {BackgroundTransparency = 1}):Play()
-TweenService:Create(Welcome, fade, {TextTransparency = 1}):Play()
-TweenService:Create(LoadingText, fade, {TextTransparency = 1}):Play()
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 20)
+StatusLabel.Position = UDim2.new(0, 0, 0.58, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Inicializando Sorkscripts..."
+StatusLabel.TextColor3 = CONFIG.TextDim
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 14
+StatusLabel.Parent = Loading
 
-task.wait(0.6)
-Loading:Destroy()
+-- Barra de progreso mejorada
+local BarBG = Instance.new("Frame")
+BarBG.Size = UDim2.new(0.4, 0, 0, 8)
+BarBG.Position = UDim2.new(0.3, 0, 0.52, 0)
+BarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+BarBG.BorderSizePixel = 0
+BarBG.Parent = Loading
 
--- Crear la interfaz principal
-pcall(function()
-    CreateMainUI()
+Instance.new("UICorner", BarBG).CornerRadius = UDim.new(1, 0)
+
+local Bar = Instance.new("Frame")
+Bar.Size = UDim2.new(0, 0, 1, 0)
+Bar.BackgroundColor3 = CONFIG.Accent
+Bar.BorderSizePixel = 0
+Bar.Parent = BarBG
+
+Instance.new("UICorner", Bar).CornerRadius = UDim.new(1, 0)
+
+-- Animación de la barra
+local barTween = TweenService:Create(Bar, TweenInfo.new(2.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+	Size = UDim2.new(1, 0, 1, 0)
+})
+
+barTween:Play()
+
+barTween.Completed:Connect(function()
+	StatusLabel.Text = "✅ ¡Listo!"
+	task.wait(0.6)
+	
+	local fade = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	TweenService:Create(Loading, fade, {BackgroundTransparency = 1}):Play()
+	TweenService:Create(Welcome, fade, {TextTransparency = 1}):Play()
+	TweenService:Create(UserLabel, fade, {TextTransparency = 1}):Play()
+	TweenService:Create(GameLabel, fade, {TextTransparency = 1}):Play()
+	TweenService:Create(StatusLabel, fade, {TextTransparency = 1}):Play()
+	TweenService:Create(BarBG, fade, {BackgroundTransparency = 1}):Play()
+	TweenService:Create(Bar, fade, {BackgroundTransparency = 1}):Play()
+	
+	task.wait(0.7)
+	Loading:Destroy()
+	CreateGameSelector()
 end)
 
-print("\n" .. string.rep("=", 60))
-print("✅ SORKSCRIPTS | CRECER POLLO v3.1")
-print("FIXED - Script funcional")
-print(string.rep("=", 60) .. "\n")
+-- ====================================================
+-- SELECTOR DE JUEGOS
+-- ====================================================
+
+function CreateGameSelector()
+	local Selector = Instance.new("Frame")
+	Selector.Size = UDim2.new(0, 380, 0, 450)
+	Selector.Position = UDim2.new(0.5, -190, 0.5, -225)
+	Selector.BackgroundColor3 = CONFIG.Background
+	Selector.BorderSizePixel = 0
+	Selector.Parent = ScreenGui
+	
+	Instance.new("UICorner", Selector).CornerRadius = UDim.new(0, 16)
+	
+	local stroke = Instance.new("UIStroke", Selector)
+	stroke.Color = CONFIG.Accent
+	stroke.Thickness = 1.5
+	stroke.Transparency = 0.4
+	
+	-- Shadow effect
+	local shadow = Instance.new("Frame")
+	shadow.Size = UDim2.new(1, 20, 1, 20)
+	shadow.Position = UDim2.new(0, -10, 0, -10)
+	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	shadow.BackgroundTransparency = 0.8
+	shadow.BorderSizePixel = 0
+	shadow.ZIndex = Selector.ZIndex - 1
+	shadow.Parent = Selector.Parent
+	
+	Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 16)
+	
+	local Title = Instance.new("TextLabel")
+	Title.Size = UDim2.new(1, 0, 0, 60)
+	Title.BackgroundTransparency = 1
+	Title.Text = "🔮 SORKSCRIPTS"
+	Title.TextColor3 = CONFIG.Accent
+	Title.Font = Enum.Font.GothamBold
+	Title.TextSize = 24
+	Title.Parent = Selector
+	
+	local Sub = Instance.new("TextLabel")
+	Sub.Size = UDim2.new(1, -30, 0, 30)
+	Sub.Position = UDim2.new(0, 15, 0, 50)
+	Sub.BackgroundTransparency = 1
+	Sub.Text = "Selecciona un juego"
+	Sub.TextColor3 = CONFIG.TextDim
+	Sub.Font = Enum.Font.Gotham
+	Sub.TextSize = 14
+	Sub.TextWrapped = true
+	Sub.Parent = Selector
+	
+	local List = Instance.new("Frame")
+	List.Size = UDim2.new(1, -30, 1, -110)
+	List.Position = UDim2.new(0, 15, 0, 90)
+	List.BackgroundTransparency = 1
+	List.Parent = Selector
+	
+	local layout = Instance.new("UIListLayout", List)
+	layout.Padding = UDim.new(0, 12)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	
+	local function CreateGameButton(name, enabled, order)
+		local Btn = Instance.new("TextButton")
+		Btn.Size = UDim2.new(1, 0, 0, 70)
+		Btn.BackgroundColor3 = CONFIG.Card
+		Btn.Text = ""
+		Btn.LayoutOrder = order
+		Btn.AutoButtonColor = false
+		Btn.Parent = List
+		
+		Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 12)
+		
+		local btnStroke = Instance.new("UIStroke", Btn)
+		btnStroke.Color = enabled and CONFIG.Accent or CONFIG.TextDim
+		btnStroke.Thickness = 1.2
+		btnStroke.Transparency = enabled and 0.3 or 0.7
+		
+		local NameL = Instance.new("TextLabel")
+		NameL.Size = UDim2.new(1, -30, 0, 28)
+		NameL.Position = UDim2.new(0, 15, 0, 12)
+		NameL.BackgroundTransparency = 1
+		NameL.Text = name
+		NameL.TextColor3 = enabled and CONFIG.Text or CONFIG.TextDim
+		NameL.Font = Enum.Font.GothamBold
+		NameL.TextSize = 16
+		NameL.TextXAlignment = Enum.TextXAlignment.Left
+		NameL.Parent = Btn
+		
+		local Status = Instance.new("TextLabel")
+		Status.Size = UDim2.new(1, -30, 0, 20)
+		Status.Position = UDim2.new(0, 15, 0, 40)
+		Status.BackgroundTransparency = 1
+		Status.Text = enabled and "✅ Disponible" or "🔒 Próximamente"
+		Status.TextColor3 = enabled and CONFIG.Success or Color3.fromRGB(150, 90, 90)
+		Status.Font = Enum.Font.Gotham
+		Status.TextSize = 12
+		Status.TextXAlignment = Enum.TextXAlignment.Left
+		Status.Parent = Btn
+		
+		if enabled then
+			Btn.MouseButton1Click:Connect(function()
+				local fade = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+				TweenService:Create(Selector, fade, {BackgroundTransparency = 1}):Play()
+				TweenService:Create(shadow, fade, {BackgroundTransparency = 1}):Play()
+				
+				task.wait(0.35)
+				Selector:Destroy()
+				shadow:Destroy()
+				CreateMainUI(name)
+			end)
+			
+			Btn.MouseEnter:Connect(function()
+				TweenService:Create(Btn, TweenInfo.new(0.15), {BackgroundColor3 = CONFIG.CardHover}):Play()
+				TweenService:Create(btnStroke, TweenInfo.new(0.15), {Thickness = 1.8}):Play()
+			end)
+			
+			Btn.MouseLeave:Connect(function()
+				TweenService:Create(Btn, TweenInfo.new(0.15), {BackgroundColor3 = CONFIG.Card}):Play()
+				TweenService:Create(btnStroke, TweenInfo.new(0.15), {Thickness = 1.2}):Play()
+			end)
+		else
+			Btn.BackgroundTransparency = 0.5
+		end
+	end
+	
+	CreateGameButton("🐔 Crecer Pollo", true, 1)
+	CreateGameButton("🚪 Romper Puerta", false, 2)
+	CreateGameButton("🍊 Blox Fruits", false, 3)
+end
+
+-- ====================================================
+-- FUNCIONES DEL JUEGO
+-- ====================================================
+
+local FarmFunctions = {}
+
+function FarmFunctions:AutoFarmChickens()
+	if not ScriptState.AutoFarm then return end
+	
+	while ScriptState.AutoFarm and ScriptActive do
+		task.wait(0.5)
+		
+		-- Buscar pollos en el mapa
+		local chickens = workspace:FindPartByCFrame(workspace.Baseplate.CFrame) or {}
+		
+		-- Aquí puedes agregar lógica personalizada para tu juego
+		-- pcall(function()
+		-- 	game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Attack"):FireServer(chicken)
+		-- end)
+	end
+end
+
+function FarmFunctions:AutoCollectEggs()
+	if not ScriptState.AutoCollectEggs then return end
+	
+	while ScriptState.AutoCollectEggs and ScriptActive do
+		task.wait(0.3)
+		
+		-- Lógica para recopilar huevos automáticamente
+		-- pcall(function()
+		-- 	game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("CollectEgg"):FireServer()
+		-- end)
+	end
+end
+
+function FarmFunctions:AutoHatchEggs()
+	if not ScriptState.AutoHatch then return end
+	
+	while ScriptState.AutoHatch and ScriptActive do
+		task.wait(1)
+		
+		-- Lógica para eclosionar huevos automáticamente
+		-- pcall(function()
+		-- 	game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("HatchEgg"):FireServer()
+		-- end)
+	end
+end
+
+function FarmFunctions:AutoSellChickens()
+	if not ScriptState.AutoSell then return end
+	
+	while ScriptState.AutoSell and ScriptActive do
+		task.wait(2)
+		
+		-- Lógica para vender pollos automáticamente
+		-- pcall(function()
+		-- 	game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("SellChicken"):FireServer()
+		-- end)
+	end
+end
+
+function FarmFunctions:InfiniteJumpToggle()
+	if not ScriptState.InfiniteJump then return end
+	
+	local UserInputService = game:GetService("UserInputService")
+	
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then return end
+		
+		if input.KeyCode == Enum.KeyCode.Space then
+			if ScriptState.InfiniteJump and PlayerCharacter:FindFirstChild("Humanoid") then
+				PlayerCharacter.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			end
+		end
+	end)
+end
+
+function FarmFunctions:WalkSpeedModify(speed)
+	if not PlayerCharacter:FindFirstChild("Humanoid") then return end
+	
+	if PlayerCharacter:FindFirstChild("Humanoid").Parent:FindFirstChild("HumanoidRootPart") then
+		local rootPart = PlayerCharacter:FindFirstChild("HumanoidRootPart")
+		-- Aquí se modificaría la velocidad
+	end
+end
+
+function FarmFunctions:AntiAFKLoop()
+	if not ScriptState.AntiAFK then return end
+	
+	while ScriptState.AntiAFK and ScriptActive do
+		task.wait(120) -- Cada 2 minutos
+		
+		pcall(function()
+			if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
+				PlayerCharacter.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			end
+		end)
+	end
+end
+
+-- ====================================================
+-- UI PRINCIPAL MEJORADA
+-- ====================================================
+
+function CreateMainUI(gameName)
+	-- Obtener headshot del jugador
+	local headshot = "rbxassetid://0"
+	pcall(function()
+		headshot = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+	end)
+	
+	-- ===== BOTÓN FLOTANTE (TOGGLE) =====
+	
+	local Toggle = Instance.new("ImageButton")
+	Toggle.Name = "FloatingToggle"
+	Toggle.Size = UDim2.new(0, 56, 0, 56)
+	Toggle.Position = UDim2.new(0, 20, 0.42, 0)
+	Toggle.BackgroundColor3 = CONFIG.Card
+	Toggle.Image = headshot
+	Toggle.ScaleType = Enum.ScaleType.Crop
+	Toggle.Parent = ScreenGui
+	Toggle.ZIndex = 100
+	
+	Instance.new("UICorner", Toggle).CornerRadius = UDim.new(1, 0)
+	
+	local toggleStroke = Instance.new("UIStroke", Toggle)
+	toggleStroke.Color = CONFIG.Accent
+	toggleStroke.Thickness = 2.2
+	toggleStroke.Transparency = 0.3
+	
+	-- Efecto hover en el botón flotante
+	Toggle.MouseEnter:Connect(function()
+		TweenService:Create(toggleStroke, TweenInfo.new(0.15), {Transparency = 0}):Play()
+	end)
+	
+	Toggle.MouseLeave:Connect(function()
+		TweenService:Create(toggleStroke, TweenInfo.new(0.15), {Transparency = 0.3}):Play()
+	end)
+	
+	-- ===== FRAME PRINCIPAL =====
+	
+	local Main = Instance.new("Frame")
+	Main.Name = "MainUI"
+	Main.Size = UDim2.new(0, 560, 0, 420)
+	Main.Position = UDim2.new(0.5, -280, 0.5, -210)
+	Main.BackgroundColor3 = CONFIG.Background
+	Main.BorderSizePixel = 0
+	Main.Parent = ScreenGui
+	Main.ZIndex = 50
+	
+	Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
+	
+	local mainStroke = Instance.new("UIStroke", Main)
+	mainStroke.Color = Color3.fromRGB(50, 50, 60)
+	mainStroke.Thickness = 1.2
+	
+	-- Shadow para el main
+	local shadowMain = Instance.new("Frame")
+	shadowMain.Size = UDim2.new(1, 30, 1, 30)
+	shadowMain.Position = UDim2.new(0, -15, 0, -15)
+	shadowMain.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	shadowMain.BackgroundTransparency = 0.7
+	shadowMain.BorderSizePixel = 0
+	shadowMain.ZIndex = 49
+	shadowMain.Parent = Main.Parent
+	
+	Instance.new("UICorner", shadowMain).CornerRadius = UDim.new(0, 14)
+	
+	-- ===== HEADER CON INFORMACIÓN =====
+	
+	local Header = Instance.new("Frame")
+	Header.Size = UDim2.new(1, 0, 0, 50)
+	Header.BackgroundColor3 = CONFIG.Sidebar
+	Header.BorderSizePixel = 0
+	Header.Parent = Main
+	
+	Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 14)
+	
+	local HeaderTitle = Instance.new("TextLabel")
+	HeaderTitle.Size = UDim2.new(0.6, 0, 1, 0)
+	HeaderTitle.Position = UDim2.new(0, 15, 0, 0)
+	HeaderTitle.BackgroundTransparency = 1
+	HeaderTitle.Text = "🔮 " .. gameName
+	HeaderTitle.TextColor3 = CONFIG.Accent
+	HeaderTitle.Font = Enum.Font.GothamBold
+	HeaderTitle.TextSize = 18
+	HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
+	HeaderTitle.Parent = Header
+	
+	local Status = Instance.new("TextLabel")
+	Status.Size = UDim2.new(0.3, 0, 1, 0)
+	Status.Position = UDim2.new(0.7, 0, 0, 0)
+	Status.BackgroundTransparency = 1
+	Status.Text = "● EN LÍNEA"
+	Status.TextColor3 = CONFIG.Success
+	Status.Font = Enum.Font.Gotham
+	Status.TextSize = 12
+	Status.TextXAlignment = Enum.TextXAlignment.Right
+	Status.Parent = Header
+	
+	-- ===== SIDEBAR IZQUIERDA =====
+	
+	local Sidebar = Instance.new("Frame")
+	Sidebar.Size = UDim2.new(0, 160, 1, -50)
+	Sidebar.Position = UDim2.new(0, 0, 0, 50)
+	Sidebar.BackgroundColor3 = CONFIG.Sidebar
+	Sidebar.BorderSizePixel = 0
+	Sidebar.Parent = Main
+	
+	-- Línea divisoria
+	local Divider = Instance.new("Frame")
+	Divider.Size = UDim2.new(0, 1, 1, 0)
+	Divider.Position = UDim2.new(1, -1, 0, 0)
+	Divider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+	Divider.BorderSizePixel = 0
+	Divider.Parent = Sidebar
+	
+	-- ===== CATEGORÍAS =====
+	
+	local categories = {
+		{Name = "Main", Icon = "⚔️", Order = 1},
+		{Name = "Farm", Icon = "🐔", Order = 2},
+		{Name = "Player", Icon = "👤", Order = 3},
+		{Name = "Visuals", Icon = "👁️", Order = 4},
+		{Name = "Config", Icon = "⚙️", Order = 5},
+	}
+	
+	local selectedCategory = "Main"
+	local contentFrames = {}
+	
+	local CatList = Instance.new("Frame")
+	CatList.Size = UDim2.new(1, -12, 1, 0)
+	CatList.Position = UDim2.new(0, 6, 0, 8)
+	CatList.BackgroundTransparency = 1
+	CatList.Parent = Sidebar
+	
+	local catLayout = Instance.new("UIListLayout", CatList)
+	catLayout.Padding = UDim.new(0, 6)
+	catLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	
+	-- ===== ÁREA DE CONTENIDO =====
+	
+	local ContentArea = Instance.new("Frame")
+	ContentArea.Size = UDim2.new(1, -175, 1, -60)
+	ContentArea.Position = UDim2.new(0, 165, 0, 55)
+	ContentArea.BackgroundTransparency = 1
+	ContentArea.Parent = Main
+	
+	local ContentTitle = Instance.new("TextLabel")
+	ContentTitle.Size = UDim2.new(1, 0, 0, 30)
+	ContentTitle.BackgroundTransparency = 1
+	ContentTitle.Text = "Main"
+	ContentTitle.TextColor3 = CONFIG.Text
+	ContentTitle.Font = Enum.Font.GothamBold
+	ContentTitle.TextSize = 18
+	ContentTitle.TextXAlignment = Enum.TextXAlignment.Left
+	ContentTitle.Parent = ContentArea
+	
+	-- Crear frames de contenido
+	for _, cat in ipairs(categories) do
+		local frame = Instance.new("ScrollingFrame")
+		frame.Name = cat.Name
+		frame.Size = UDim2.new(1, 0, 1, -40)
+		frame.Position = UDim2.new(0, 0, 0, 35)
+		frame.BackgroundTransparency = 1
+		frame.ScrollBarThickness = 3
+		frame.ScrollBarImageColor3 = CONFIG.Accent
+		frame.Visible = (cat.Name == "Main")
+		frame.Parent = ContentArea
+		
+		contentFrames[cat.Name] = frame
+		
+		local list = Instance.new("UIListLayout", frame)
+		list.Padding = UDim.new(0, 8)
+		list.SortOrder = Enum.SortOrder.LayoutOrder
+	end
+	
+	-- ===== FUNCIÓN CREAR TOGGLE =====
+	
+	local function CreateToggle(parent, text, default, callback)
+		local holder = Instance.new("Frame")
+		holder.Size = UDim2.new(1, -10, 0, 40)
+		holder.BackgroundColor3 = CONFIG.Card
+		holder.BorderSizePixel = 0
+		holder.Parent = parent
+		
+		Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 8)
+		
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(1, -60, 1, 0)
+		label.Position = UDim2.new(0, 12, 0, 0)
+		label.BackgroundTransparency = 1
+		label.Text = text
+		label.TextColor3 = CONFIG.Text
+		label.Font = Enum.Font.Gotham
+		label.TextSize = 13
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.Parent = holder
+		
+		local toggle = Instance.new("TextButton")
+		toggle.Size = UDim2.new(0, 44, 0, 24)
+		toggle.Position = UDim2.new(1, -54, 0.5, -12)
+		toggle.BackgroundColor3 = default and CONFIG.ToggleOn or CONFIG.ToggleOff
+		toggle.Text = ""
+		toggle.Parent = holder
+		
+		Instance.new("UICorner", toggle).CornerRadius = UDim.new(1, 0)
+		
+		local circle = Instance.new("Frame")
+		circle.Size = UDim2.new(0, 18, 0, 18)
+		circle.Position = default and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+		circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		circle.Parent = toggle
+		
+		Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+		
+		local state = default
+		
+		toggle.MouseButton1Click:Connect(function()
+			state = not state
+			
+			TweenService:Create(toggle, TweenInfo.new(0.2), {
+				BackgroundColor3 = state and CONFIG.ToggleOn or CONFIG.ToggleOff
+			}):Play()
+			
+			TweenService:Create(circle, TweenInfo.new(0.2), {
+				Position = state and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+			}):Play()
+			
+			if callback then
+				callback(state)
+			end
+		end)
+		
+		return holder
+	end
+	
+	-- ===== FUNCIÓN CREAR SLIDER =====
+	
+	local function CreateSlider(parent, text, min, max, default, callback)
+		local holder = Instance.new("Frame")
+		holder.Size = UDim2.new(1, -10, 0, 50)
+		holder.BackgroundColor3 = CONFIG.Card
+		holder.BorderSizePixel = 0
+		holder.Parent = parent
+		
+		Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 8)
+		
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(0.6, 0, 0, 20)
+		label.Position = UDim2.new(0, 12, 0, 5)
+		label.BackgroundTransparency = 1
+		label.Text = text
+		label.TextColor3 = CONFIG.Text
+		label.Font = Enum.Font.Gotham
+		label.TextSize = 12
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.Parent = holder
+		
+		local value = Instance.new("TextLabel")
+		value.Size = UDim2.new(0.3, 0, 0, 20)
+		value.Position = UDim2.new(0.7, -20, 0, 5)
+		value.BackgroundTransparency = 1
+		value.Text = tostring(default)
+		value.TextColor3 = CONFIG.Accent
+		value.Font = Enum.Font.GothamBold
+		value.TextSize = 12
+		value.TextXAlignment = Enum.TextXAlignment.Right
+		value.Parent = holder
+		
+		local sliderBG = Instance.new("Frame")
+		sliderBG.Size = UDim2.new(1, -24, 0, 4)
+		sliderBG.Position = UDim2.new(0, 12, 0, 32)
+		sliderBG.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+		sliderBG.BorderSizePixel = 0
+		sliderBG.Parent = holder
+		
+		Instance.new("UICorner", sliderBG).CornerRadius = UDim.new(1, 0)
+		
+		local sliderFill = Instance.new("Frame")
+		sliderFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+		sliderFill.BackgroundColor3 = CONFIG.Accent
+		sliderFill.BorderSizePixel = 0
+		sliderFill.Parent = sliderBG
+		
+		Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
+		
+		local sliderButton = Instance.new("TextButton")
+		sliderButton.Size = UDim2.new(0, 12, 0, 12)
+		sliderButton.Position = UDim2.new((default - min) / (max - min), -6, 0.5, -6)
+		sliderButton.BackgroundColor3 = CONFIG.Accent
+		sliderButton.Text = ""
+		sliderButton.Parent = sliderBG
+		
+		Instance.new("UICorner", sliderButton).CornerRadius = UDim.new(1, 0)
+		
+		local dragging = false
+		
+		sliderButton.MouseButton1Down:Connect(function()
+			dragging = true
+		end)
+		
+		UserInputService.InputEnded:Connect(function()
+			dragging = false
+		end)
+		
+		UserInputService.InputChanged:Connect(function(input)
+			if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+				local mousePos = UserInputService:GetMouseLocation()
+				local sliderPos = sliderBG.AbsolutePosition.X
+				local sliderSize = sliderBG.AbsoluteSize.X
+				local relativePos = math.clamp((mousePos.X - sliderPos) / sliderSize, 0, 1)
+				
+				local newValue = math.round(min + (relativePos * (max - min)))
+				
+				TweenService:Create(sliderFill, TweenInfo.new(0.05), {
+					Size = UDim2.new(relativePos, 0, 1, 0)
+				}):Play()
+				
+				TweenService:Create(sliderButton, TweenInfo.new(0.05), {
+					Position = UDim2.new(relativePos, -6, 0.5, -6)
+				}):Play()
+				
+				value.Text = tostring(newValue)
+				
+				if callback then
+					callback(newValue)
+				end
+			end
+		end)
+		
+		return holder
+	end
+	
+	-- ===== CONTENIDO - MAIN =====
+	
+	CreateToggle(contentFrames["Main"], "🚀 Auto Farm", false, function(state)
+		ScriptState.AutoFarm = state
+		if state then
+			coroutine.wrap(FarmFunctions.AutoFarmChickens)()
+		end
+	end)
+	
+	CreateToggle(contentFrames["Main"], "🥚 Auto Collect Eggs", false, function(state)
+		ScriptState.AutoCollectEggs = state
+		if state then
+			coroutine.wrap(FarmFunctions.AutoCollectEggs)()
+		end
+	end)
+	
+	CreateToggle(contentFrames["Main"], "🐣 Auto Hatch", false, function(state)
+		ScriptState.AutoHatch = state
+		if state then
+			coroutine.wrap(FarmFunctions.AutoHatchEggs)()
+		end
+	end)
+	
+	CreateToggle(contentFrames["Main"], "💰 Auto Sell", false, function(state)
+		ScriptState.AutoSell = state
+		if state then
+			coroutine.wrap(FarmFunctions.AutoSellChickens)()
+		end
+	end)
+	
+	-- ===== CONTENIDO - FARM =====
+	
+	CreateToggle(contentFrames["Farm"], "⚔️ Auto Fight (PIT)", false, function(state)
+		ScriptState.AutoFight = state
+	end)
+	
+	CreateToggle(contentFrames["Farm"], "🏔️ Auto Climb Tower", false, function(state)
+		ScriptState.AutoClimbTower = state
+	end)
+	
+	CreateToggle(contentFrames["Farm"], "🔄 Auto Fuse", false, function(state)
+		ScriptState.AutoFuse = state
+	end)
+	
+	-- ===== CONTENIDO - PLAYER =====
+	
+	CreateSlider(contentFrames["Player"], "👟 Walk Speed", 10, 50, DefaultWalkSpeed, function(value)
+		DefaultWalkSpeed = value
+		if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
+			PlayerCharacter.Humanoid.WalkSpeed = value
+		end
+	end)
+	
+	CreateSlider(contentFrames["Player"], "📈 Jump Power", 20, 100, DefaultJumpPower, function(value)
+		DefaultJumpPower = value
+		if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
+			PlayerCharacter.Humanoid.JumpPower = value
+		end
+	end)
+	
+	CreateToggle(contentFrames["Player"], "♾️ Infinite Jump", false, function(state)
+		ScriptState.InfiniteJump = state
+		if state then
+			FarmFunctions:InfiniteJumpToggle()
+		end
+	end)
+	
+	-- ===== CONTENIDO - VISUALS =====
+	
+	CreateToggle(contentFrames["Visuals"], "👁️ ESP Chickens", false, function(state)
+		ScriptState.ESPChickens = state
+	end)
+	
+	CreateToggle(contentFrames["Visuals"], "👁️ ESP Eggs", false, function(state)
+		ScriptState.ESPEggs = state
+	end)
+	
+	-- ===== CONTENIDO - CONFIG =====
+	
+	CreateToggle(contentFrames["Config"], "🔄 Auto Rejoin", false, function(state)
+		ScriptState.AutoRejoin = state
+	end)
+	
+	CreateToggle(contentFrames["Config"], "🛡️ Anti AFK", true, function(state)
+		ScriptState.AntiAFK = state
+		if state then
+			coroutine.wrap(FarmFunctions.AntiAFKLoop)()
+		end
+	end)
+	
+	local infoLabel = Instance.new("TextLabel")
+	infoLabel.Size = UDim2.new(1, -20, 0, 30)
+	infoLabel.Position = UDim2.new(0, 10, 1, -35)
+	infoLabel.BackgroundTransparency = 1
+	infoLabel.Text = "v1.0 • Sorkscripts © 2024"
+	infoLabel.TextColor3 = CONFIG.TextDim
+	infoLabel.Font = Enum.Font.Gotham
+	infoLabel.TextSize = 10
+	infoLabel.Parent = contentFrames["Config"]
+	
+	-- ===== BOTONES DEL SIDEBAR =====
+	
+	for i, cat in ipairs(categories) do
+		local btn = Instance.new("TextButton")
+		btn.Name = cat.Name .. "Btn"
+		btn.Size = UDim2.new(1, 0, 0, 38)
+		btn.BackgroundColor3 = (cat.Name == "Main") and Color3.fromRGB(50, 35, 70) or Color3.fromRGB(0, 0, 0)
+		btn.BackgroundTransparency = (cat.Name == "Main") and 0 or 0.3
+		btn.Text = " " .. cat.Icon .. " " .. cat.Name
+		btn.TextColor3 = (cat.Name == "Main") and CONFIG.Text or CONFIG.TextDim
+		btn.Font = Enum.Font.Gotham
+		btn.TextSize = 13
+		btn.TextXAlignment = Enum.TextXAlignment.Left
+		btn.LayoutOrder = cat.Order
+		btn.Parent = CatList
+		
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+		
+		btn.MouseButton1Click:Connect(function()
+			for _, v in pairs(CatList:GetChildren()) do
+				if v:IsA("TextButton") then
+					v.BackgroundTransparency = 0.3
+					v.TextColor3 = CONFIG.TextDim
+				end
+			end
+			
+			btn.BackgroundTransparency = 0
+			btn.BackgroundColor3 = Color3.fromRGB(50, 35, 70)
+			btn.TextColor3 = CONFIG.Text
+			
+			for name, frame in pairs(contentFrames) do
+				frame.Visible = (name == cat.Name)
+			end
+			
+			ContentTitle.Text = cat.Name
+			selectedCategory = cat.Name
+		end)
+		
+		btn.MouseEnter:Connect(function()
+			if cat.Name ~= selectedCategory then
+				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.15}):Play()
+			end
+		end)
+		
+		btn.MouseLeave:Connect(function()
+			if cat.Name ~= selectedCategory then
+				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.3}):Play()
+			end
+		end)
+	end
+	
+	-- ===== BOTÓN CERRAR =====
+	
+	local CloseBtn = Instance.new("TextButton")
+	CloseBtn.Name = "CloseBtn"
+	CloseBtn.Size = UDim2.new(0, 32, 0, 32)
+	CloseBtn.Position = UDim2.new(1, -42, 0, 8)
+	CloseBtn.BackgroundColor3 = CONFIG.Error
+	CloseBtn.Text = "✕"
+	CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	CloseBtn.Font = Enum.Font.GothamBold
+	CloseBtn.TextSize = 16
+	CloseBtn.ZIndex = 100
+	CloseBtn.Parent = Main
+	
+	Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+	
+	CloseBtn.MouseButton1Click:Connect(function()
+		Main.Visible = false
+	end)
+	
+	CloseBtn.MouseEnter:Connect(function()
+		TweenService:Create(CloseBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 50, 40)}):Play()
+	end)
+	
+	CloseBtn.MouseLeave:Connect(function()
+		TweenService:Create(CloseBtn, TweenInfo.new(0.1), {BackgroundColor3 = CONFIG.Error}):Play()
+	end)
+	
+	-- ===== BOTÓN CERRAR SCRIPT COMPLETAMENTE =====
+	
+	local ExitBtn = Instance.new("TextButton")
+	ExitBtn.Name = "ExitBtn"
+	ExitBtn.Size = UDim2.new(0, 32, 0, 32)
+	ExitBtn.Position = UDim2.new(1, -42, 1, -40)
+	ExitBtn.BackgroundColor3 = CONFIG.Warning
+	ExitBtn.Text = "⏹️"
+	ExitBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+	ExitBtn.Font = Enum.Font.GothamBold
+	ExitBtn.TextSize = 16
+	ExitBtn.ZIndex = 100
+	ExitBtn.Parent = Main
+	
+	Instance.new("UICorner", ExitBtn).CornerRadius = UDim.new(0, 8)
+	
+	local function CloseScriptCompletely()
+		ScriptActive = false
+		
+		-- Detener todos los loops
+		ScriptState.AutoFarm = false
+		ScriptState.AutoCollectEggs = false
+		ScriptState.AutoHatch = false
+		ScriptState.AutoSell = false
+		ScriptState.AntiAFK = false
+		
+		-- Animación de cierre
+		local fade = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		TweenService:Create(Main, fade, {BackgroundTransparency = 1}):Play()
+		TweenService:Create(Toggle, fade, {BackgroundTransparency = 1}):Play()
+		TweenService:Create(shadowMain, fade, {BackgroundTransparency = 1}):Play()
+		
+		task.wait(0.5)
+		
+		-- Destruir GUI
+		ScreenGui:Destroy()
+		print("✅ Sorkscripts cerrado correctamente")
+	end
+	
+	ExitBtn.MouseButton1Click:Connect(function()
+		CloseScriptCompletely()
+	end)
+	
+	ExitBtn.MouseEnter:Connect(function()
+		TweenService:Create(ExitBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 165, 0)}):Play()
+	end)
+	
+	ExitBtn.MouseLeave:Connect(function()
+		TweenService:Create(ExitBtn, TweenInfo.new(0.1), {BackgroundColor3 = CONFIG.Warning}):Play()
+	end)
+	
+	-- ===== TOGGLE PRINCIPAL =====
+	
+	Toggle.MouseButton1Click:Connect(function()
+		Main.Visible = not Main.Visible
+	end)
+	
+	-- ===== ARRASTRAR MAIN FRAME =====
+	
+	local draggingMain, dragStartMain, startPosMain
+	
+	local dragArea = Instance.new("Frame")
+	dragArea.Size = UDim2.new(1, -160, 0, 50)
+	dragArea.Position = UDim2.new(0, 0, 0, 0)
+	dragArea.BackgroundTransparency = 1
+	dragArea.ZIndex = 75
+	dragArea.Parent = Header
+	
+	dragArea.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			draggingMain = true
+			dragStartMain = input.Position
+			startPosMain = Main.Position
+			
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					draggingMain = false
+				end
+			end)
+		end
+	end)
+	
+	UserInputService.InputChanged:Connect(function(input)
+		if draggingMain and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStartMain
+			Main.Position = UDim2.new(startPosMain.X.Scale, startPosMain.X.Offset + delta.X, startPosMain.Y.Scale, startPosMain.Y.Offset + delta.Y)
+			shadowMain.Position = Main.Position + UDim2.new(0, -15, 0, -15)
+		end
+	end)
+	
+	-- ===== ARRASTRAR BOTÓN FLOTANTE =====
+	
+	local draggingBtn, dragStartBtn, startPosBtn
+	
+	Toggle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			draggingBtn = true
+			dragStartBtn = input.Position
+			startPosBtn = Toggle.Position
+			
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					draggingBtn = false
+				end
+			end)
+		end
+	end)
+	
+	UserInputService.InputChanged:Connect(function(input)
+		if draggingBtn and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStartBtn
+			Toggle.Position = UDim2.new(startPosBtn.X.Scale, startPosBtn.X.Offset + delta.X, startPosBtn.Y.Scale, startPosBtn.Y.Offset + delta.Y)
+		end
+	end)
+	
+	-- ===== LOOP ANTI AFK =====
+	
+	coroutine.wrap(FarmFunctions.AntiAFKLoop)()
+	
+	print("✅ Sorkscripts | Crecer Pollo v1.0 cargado correctamente")
+	print("📌 Usa los botones para acceder a las funciones")
+	print("❌ Presiona el botón ⏹️ para cerrar completamente el script")
+end
+
+--// Fin del script
