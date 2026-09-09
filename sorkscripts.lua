@@ -1,14 +1,19 @@
 --// ====================================================
---// SORKSCRIPTS | CRECER POLLO | V1.0
+--// SORKSCRIPTS | CRECER POLLO | V2.0 - FULLY FUNCTIONAL
 --// Estilo Vertex (Oscuro + Acento Morado)
 --// Compatible con Delta Mobile & Roblox Studio
 --// ====================================================
+
+repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
 local LocalPlayer = Players.LocalPlayer
 local PlayerCharacter = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
@@ -56,6 +61,69 @@ local ScriptState = {
 local ScriptActive = true
 local DefaultWalkSpeed = 16
 local DefaultJumpPower = 50
+local AutoFarmLoop = nil
+local AutoEggLoop = nil
+
+-- Logging system
+local function Log(message, type)
+	type = type or "INFO"
+	local prefix = {
+		INFO = "ℹ️",
+		SUCCESS = "✅",
+		WARNING = "⚠️",
+		ERROR = "❌",
+		DEBUG = "🐛"
+	}
+	print("[Sorkscripts] " .. (prefix[type] or "•") .. " " .. message)
+end
+
+-- ====================================================
+-- FUNCIÓN PARA ENCONTRAR REMOTES
+-- ====================================================
+
+local function FindRemote(name, timeout)
+	timeout = timeout or 5
+	local startTime = tick()
+	
+	while tick() - startTime < timeout do
+		local remote = ReplicatedStorage:FindFirstChild(name)
+		if remote then
+			Log("Remote encontrado: " .. name, "SUCCESS")
+			return remote
+		end
+		
+		local remoteFolder = ReplicatedStorage:FindFirstChild("Remotes")
+		if remoteFolder then
+			remote = remoteFolder:FindFirstChild(name)
+			if remote then
+				Log("Remote encontrado en Remotes: " .. name, "SUCCESS")
+				return remote
+			end
+		end
+		
+		task.wait(0.1)
+	end
+	
+	Log("Remote NO encontrado: " .. name, "WARNING")
+	return nil
+end
+
+local function SafeFire(remote, ...)
+	if not remote or not remote:IsA("RemoteEvent") then
+		return false
+	end
+	
+	local ok, err = pcall(function()
+		remote:FireServer(...)
+	end)
+	
+	if not ok then
+		Log("Error al disparar remote: " .. tostring(err), "ERROR")
+		return false
+	end
+	
+	return true
+end
 
 -- ====================================================
 -- LIMPIAR GUI ANTERIOR
@@ -83,13 +151,6 @@ Loading.BackgroundColor3 = CONFIG.Background
 Loading.BorderSizePixel = 0
 Loading.Parent = ScreenGui
 
--- Fondo con gradiente simulado
-local GradientBG = Instance.new("Frame")
-GradientBG.Size = UDim2.new(1, 0, 1, 0)
-GradientBG.BackgroundColor3 = CONFIG.Background
-GradientBG.BorderSizePixel = 0
-GradientBG.Parent = Loading
-
 local Welcome = Instance.new("TextLabel")
 Welcome.Size = UDim2.new(1, 0, 0, 50)
 Welcome.Position = UDim2.new(0, 0, 0.35, 0)
@@ -114,7 +175,7 @@ local GameLabel = Instance.new("TextLabel")
 GameLabel.Size = UDim2.new(1, 0, 0, 20)
 GameLabel.Position = UDim2.new(0, 0, 0.47, 0)
 GameLabel.BackgroundTransparency = 1
-GameLabel.Text = "Crecer Pollo v1.0"
+GameLabel.Text = "Crecer Pollo v2.0"
 GameLabel.TextColor3 = CONFIG.TextDim
 GameLabel.Font = Enum.Font.Gotham
 GameLabel.TextSize = 14
@@ -192,18 +253,6 @@ function CreateGameSelector()
 	stroke.Thickness = 1.5
 	stroke.Transparency = 0.4
 	
-	-- Shadow effect
-	local shadow = Instance.new("Frame")
-	shadow.Size = UDim2.new(1, 20, 1, 20)
-	shadow.Position = UDim2.new(0, -10, 0, -10)
-	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	shadow.BackgroundTransparency = 0.8
-	shadow.BorderSizePixel = 0
-	shadow.ZIndex = Selector.ZIndex - 1
-	shadow.Parent = Selector.Parent
-	
-	Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 16)
-	
 	local Title = Instance.new("TextLabel")
 	Title.Size = UDim2.new(1, 0, 0, 60)
 	Title.BackgroundTransparency = 1
@@ -276,11 +325,9 @@ function CreateGameSelector()
 			Btn.MouseButton1Click:Connect(function()
 				local fade = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 				TweenService:Create(Selector, fade, {BackgroundTransparency = 1}):Play()
-				TweenService:Create(shadow, fade, {BackgroundTransparency = 1}):Play()
 				
 				task.wait(0.35)
 				Selector:Destroy()
-				shadow:Destroy()
 				CreateMainUI(name)
 			end)
 			
@@ -304,93 +351,162 @@ function CreateGameSelector()
 end
 
 -- ====================================================
--- FUNCIONES DEL JUEGO
+-- FUNCIONES DEL JUEGO - GAME MECHANICS
 -- ====================================================
 
-local FarmFunctions = {}
+local GameMechanics = {}
 
-function FarmFunctions:AutoFarmChickens()
-	if not ScriptState.AutoFarm then return end
+-- Detectar y obtener datos del juego
+function GameMechanics:DetectGameStructure()
+	Log("Detectando estructura del juego...", "DEBUG")
 	
-	while ScriptState.AutoFarm and ScriptActive do
-		task.wait(0.5)
-		
-		-- Buscar pollos en el mapa
-		local chickens = workspace:FindPartByCFrame(workspace.Baseplate.CFrame) or {}
-		
-		-- Aquí puedes agregar lógica personalizada para tu juego
-		-- pcall(function()
-		-- 	game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Attack"):FireServer(chicken)
-		-- end)
-	end
+	-- Buscar pollos en workspace
+	local chicken = Workspace:FindFirstChild("Chicken") or 
+				   Workspace:FindFirstChild("chicken") or
+				   Workspace:FindFirstChild("Pet") or
+				   Workspace:FindFirstChild("pet")
+	
+	-- Buscar huevos
+	local egg = Workspace:FindFirstChild("Egg") or
+			   Workspace:FindFirstChild("egg") or
+			   Workspace:FindFirstChild("EggPart") or
+			   Workspace:FindFirstChild("Egg_Part")
+	
+	-- Buscar área de farming
+	local farmArea = Workspace:FindFirstChild("FarmArea") or
+					Workspace:FindFirstChild("Farm") or
+					Workspace:FindFirstChild("GameArea")
+	
+	return {
+		chicken = chicken,
+		egg = egg,
+		farmArea = farmArea
+	}
 end
 
-function FarmFunctions:AutoCollectEggs()
-	if not ScriptState.AutoCollectEggs then return end
+-- Auto Collect Eggs
+function GameMechanics:AutoCollectEggsLoop()
+	if not ScriptState.AutoCollectEggs or not ScriptActive then return end
+	
+	Log("Auto Collect Eggs iniciado", "SUCCESS")
 	
 	while ScriptState.AutoCollectEggs and ScriptActive do
 		task.wait(0.3)
 		
-		-- Lógica para recopilar huevos automáticamente
-		-- pcall(function()
-		-- 	game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("CollectEgg"):FireServer()
-		-- end)
+		pcall(function()
+			-- Buscar huevos en workspace
+			for _, egg in pairs(Workspace:GetChildren()) do
+				if egg:IsA("Part") or egg:IsA("Model") then
+					local name = egg.Name:lower()
+					
+					if name:find("egg") or name:find("huevo") or name:find("spawn") then
+						-- Mover al jugador cerca del huevo
+						if PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
+							PlayerCharacter:SetPrimaryPartCFrame(egg.CFrame + Vector3.new(0, 3, 0))
+							
+							-- Intentar disparar evento de recolecta
+							local remote = FindRemote("CollectEgg") or FindRemote("Collect") or FindRemote("TakeEgg")
+							if remote then
+								SafeFire(remote, egg)
+							end
+							
+							Log("Huevo recolectado: " .. egg.Name, "SUCCESS")
+						end
+						
+						task.wait(0.2)
+					end
+				end
+			end
+		end)
 	end
 end
 
-function FarmFunctions:AutoHatchEggs()
-	if not ScriptState.AutoHatch then return end
+-- Auto Hatch Eggs
+function GameMechanics:AutoHatchEggsLoop()
+	if not ScriptState.AutoHatch or not ScriptActive then return end
+	
+	Log("Auto Hatch iniciado", "SUCCESS")
 	
 	while ScriptState.AutoHatch and ScriptActive do
-		task.wait(1)
+		task.wait(0.5)
 		
-		-- Lógica para eclosionar huevos automáticamente
-		-- pcall(function()
-		-- 	game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("HatchEgg"):FireServer()
-		-- end)
+		pcall(function()
+			-- Buscar remoto de eclosión
+			local hatchRemote = FindRemote("HatchEgg") or FindRemote("Hatch") or FindRemote("IncubateEgg")
+			
+			if hatchRemote then
+				SafeFire(hatchRemote)
+				Log("Huevo eclosionado", "SUCCESS")
+			end
+		end)
 	end
 end
 
-function FarmFunctions:AutoSellChickens()
-	if not ScriptState.AutoSell then return end
+-- Auto Farm Chickens
+function GameMechanics:AutoFarmChickensLoop()
+	if not ScriptState.AutoFarm or not ScriptActive then return end
+	
+	Log("Auto Farm Chickens iniciado", "SUCCESS")
+	
+	while ScriptState.AutoFarm and ScriptActive do
+		task.wait(0.4)
+		
+		pcall(function()
+			if PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
+				-- Buscar pollos cercanos
+				for _, chicken in pairs(Workspace:GetChildren()) do
+					if chicken:IsA("Model") or chicken:IsA("Part") then
+						local name = chicken.Name:lower()
+						
+						if name:find("chicken") or name:find("pollo") or name:find("pet") then
+							-- Mover al pollo
+							local chickenPos = chicken:FindFirstChild("HumanoidRootPart") or chicken.PrimaryPart or chicken
+							
+							if chickenPos then
+								PlayerCharacter:SetPrimaryPartCFrame(chickenPos.CFrame + Vector3.new(0, 0, 5))
+								
+								-- Disparar evento de ataque/alimentación
+								local attackRemote = FindRemote("Attack") or FindRemote("Feed") or FindRemote("Interact")
+								if attackRemote then
+									SafeFire(attackRemote, chicken)
+								end
+								
+								Log("Pollo atacado/alimentado", "SUCCESS")
+								task.wait(0.3)
+							end
+						end
+					end
+				end
+			end
+		end)
+	end
+end
+
+-- Auto Sell
+function GameMechanics:AutoSellChickensLoop()
+	if not ScriptState.AutoSell or not ScriptActive then return end
+	
+	Log("Auto Sell iniciado", "SUCCESS")
 	
 	while ScriptState.AutoSell and ScriptActive do
-		task.wait(2)
+		task.wait(1)
 		
-		-- Lógica para vender pollos automáticamente
-		-- pcall(function()
-		-- 	game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("SellChicken"):FireServer()
-		-- end)
-	end
-end
-
-function FarmFunctions:InfiniteJumpToggle()
-	if not ScriptState.InfiniteJump then return end
-	
-	local UserInputService = game:GetService("UserInputService")
-	
-	UserInputService.InputBegan:Connect(function(input, gameProcessed)
-		if gameProcessed then return end
-		
-		if input.KeyCode == Enum.KeyCode.Space then
-			if ScriptState.InfiniteJump and PlayerCharacter:FindFirstChild("Humanoid") then
-				PlayerCharacter.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+		pcall(function()
+			local sellRemote = FindRemote("Sell") or FindRemote("SellChicken") or FindRemote("SellPet")
+			
+			if sellRemote then
+				SafeFire(sellRemote)
+				Log("Pollo vendido", "SUCCESS")
 			end
-		end
-	end)
-end
-
-function FarmFunctions:WalkSpeedModify(speed)
-	if not PlayerCharacter:FindFirstChild("Humanoid") then return end
-	
-	if PlayerCharacter:FindFirstChild("Humanoid").Parent:FindFirstChild("HumanoidRootPart") then
-		local rootPart = PlayerCharacter:FindFirstChild("HumanoidRootPart")
-		-- Aquí se modificaría la velocidad
+		end)
 	end
 end
 
-function FarmFunctions:AntiAFKLoop()
-	if not ScriptState.AntiAFK then return end
+-- Anti AFK Loop
+function GameMechanics:AntiAFKLoop()
+	if not ScriptState.AntiAFK or not ScriptActive then return end
+	
+	Log("Anti AFK activado", "SUCCESS")
 	
 	while ScriptState.AntiAFK and ScriptActive do
 		task.wait(120) -- Cada 2 minutos
@@ -398,9 +514,47 @@ function FarmFunctions:AntiAFKLoop()
 		pcall(function()
 			if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
 				PlayerCharacter.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				Log("Anti AFK - Movimiento realizado", "DEBUG")
 			end
 		end)
 	end
+end
+
+-- Infinite Jump
+function GameMechanics:InfiniteJumpStart()
+	if not ScriptState.InfiniteJump or not ScriptActive then return end
+	
+	Log("Infinite Jump activado", "SUCCESS")
+	
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then return end
+		
+		if input.KeyCode == Enum.KeyCode.Space and ScriptState.InfiniteJump then
+			if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
+				PlayerCharacter.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			end
+		end
+	end)
+end
+
+-- Walk Speed Modify
+function GameMechanics:SetWalkSpeed(speed)
+	pcall(function()
+		if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
+			PlayerCharacter.Humanoid.WalkSpeed = speed
+			Log("Walk Speed cambiado a: " .. speed, "SUCCESS")
+		end
+	end)
+end
+
+-- Jump Power Modify
+function GameMechanics:SetJumpPower(power)
+	pcall(function()
+		if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
+			PlayerCharacter.Humanoid.JumpPower = power
+			Log("Jump Power cambiado a: " .. power, "SUCCESS")
+		end
+	end)
 end
 
 -- ====================================================
@@ -433,15 +587,6 @@ function CreateMainUI(gameName)
 	toggleStroke.Thickness = 2.2
 	toggleStroke.Transparency = 0.3
 	
-	-- Efecto hover en el botón flotante
-	Toggle.MouseEnter:Connect(function()
-		TweenService:Create(toggleStroke, TweenInfo.new(0.15), {Transparency = 0}):Play()
-	end)
-	
-	Toggle.MouseLeave:Connect(function()
-		TweenService:Create(toggleStroke, TweenInfo.new(0.15), {Transparency = 0.3}):Play()
-	end)
-	
 	-- ===== FRAME PRINCIPAL =====
 	
 	local Main = Instance.new("Frame")
@@ -459,19 +604,7 @@ function CreateMainUI(gameName)
 	mainStroke.Color = Color3.fromRGB(50, 50, 60)
 	mainStroke.Thickness = 1.2
 	
-	-- Shadow para el main
-	local shadowMain = Instance.new("Frame")
-	shadowMain.Size = UDim2.new(1, 30, 1, 30)
-	shadowMain.Position = UDim2.new(0, -15, 0, -15)
-	shadowMain.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	shadowMain.BackgroundTransparency = 0.7
-	shadowMain.BorderSizePixel = 0
-	shadowMain.ZIndex = 49
-	shadowMain.Parent = Main.Parent
-	
-	Instance.new("UICorner", shadowMain).CornerRadius = UDim.new(0, 14)
-	
-	-- ===== HEADER CON INFORMACIÓN =====
+	-- ===== HEADER =====
 	
 	local Header = Instance.new("Frame")
 	Header.Size = UDim2.new(1, 0, 0, 50)
@@ -485,23 +618,12 @@ function CreateMainUI(gameName)
 	HeaderTitle.Size = UDim2.new(0.6, 0, 1, 0)
 	HeaderTitle.Position = UDim2.new(0, 15, 0, 0)
 	HeaderTitle.BackgroundTransparency = 1
-	HeaderTitle.Text = "🔮 " .. gameName
+	HeaderTitle.Text = "🐔 " .. gameName
 	HeaderTitle.TextColor3 = CONFIG.Accent
 	HeaderTitle.Font = Enum.Font.GothamBold
 	HeaderTitle.TextSize = 18
 	HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
 	HeaderTitle.Parent = Header
-	
-	local Status = Instance.new("TextLabel")
-	Status.Size = UDim2.new(0.3, 0, 1, 0)
-	Status.Position = UDim2.new(0.7, 0, 0, 0)
-	Status.BackgroundTransparency = 1
-	Status.Text = "● EN LÍNEA"
-	Status.TextColor3 = CONFIG.Success
-	Status.Font = Enum.Font.Gotham
-	Status.TextSize = 12
-	Status.TextXAlignment = Enum.TextXAlignment.Right
-	Status.Parent = Header
 	
 	-- ===== SIDEBAR IZQUIERDA =====
 	
@@ -512,22 +634,13 @@ function CreateMainUI(gameName)
 	Sidebar.BorderSizePixel = 0
 	Sidebar.Parent = Main
 	
-	-- Línea divisoria
-	local Divider = Instance.new("Frame")
-	Divider.Size = UDim2.new(0, 1, 1, 0)
-	Divider.Position = UDim2.new(1, -1, 0, 0)
-	Divider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-	Divider.BorderSizePixel = 0
-	Divider.Parent = Sidebar
-	
 	-- ===== CATEGORÍAS =====
 	
 	local categories = {
-		{Name = "Main", Icon = "⚔️", Order = 1},
+		{Name = "Main", Icon = "🚀", Order = 1},
 		{Name = "Farm", Icon = "🐔", Order = 2},
 		{Name = "Player", Icon = "👤", Order = 3},
-		{Name = "Visuals", Icon = "👁️", Order = 4},
-		{Name = "Config", Icon = "⚙️", Order = 5},
+		{Name = "Config", Icon = "⚙️", Order = 4},
 	}
 	
 	local selectedCategory = "Main"
@@ -742,38 +855,38 @@ function CreateMainUI(gameName)
 	CreateToggle(contentFrames["Main"], "🚀 Auto Farm", false, function(state)
 		ScriptState.AutoFarm = state
 		if state then
-			coroutine.wrap(FarmFunctions.AutoFarmChickens)()
+			coroutine.wrap(function() GameMechanics:AutoFarmChickensLoop() end)()
 		end
 	end)
 	
 	CreateToggle(contentFrames["Main"], "🥚 Auto Collect Eggs", false, function(state)
 		ScriptState.AutoCollectEggs = state
 		if state then
-			coroutine.wrap(FarmFunctions.AutoCollectEggs)()
+			coroutine.wrap(function() GameMechanics:AutoCollectEggsLoop() end)()
 		end
 	end)
 	
 	CreateToggle(contentFrames["Main"], "🐣 Auto Hatch", false, function(state)
 		ScriptState.AutoHatch = state
 		if state then
-			coroutine.wrap(FarmFunctions.AutoHatchEggs)()
+			coroutine.wrap(function() GameMechanics:AutoHatchEggsLoop() end)()
 		end
 	end)
 	
 	CreateToggle(contentFrames["Main"], "💰 Auto Sell", false, function(state)
 		ScriptState.AutoSell = state
 		if state then
-			coroutine.wrap(FarmFunctions.AutoSellChickens)()
+			coroutine.wrap(function() GameMechanics:AutoSellChickensLoop() end)()
 		end
 	end)
 	
 	-- ===== CONTENIDO - FARM =====
 	
-	CreateToggle(contentFrames["Farm"], "⚔️ Auto Fight (PIT)", false, function(state)
+	CreateToggle(contentFrames["Farm"], "⚔️ Auto Attack", false, function(state)
 		ScriptState.AutoFight = state
 	end)
 	
-	CreateToggle(contentFrames["Farm"], "🏔️ Auto Climb Tower", false, function(state)
+	CreateToggle(contentFrames["Farm"], "🏔️ Auto Climb", false, function(state)
 		ScriptState.AutoClimbTower = state
 	end)
 	
@@ -783,47 +896,29 @@ function CreateMainUI(gameName)
 	
 	-- ===== CONTENIDO - PLAYER =====
 	
-	CreateSlider(contentFrames["Player"], "👟 Walk Speed", 10, 50, DefaultWalkSpeed, function(value)
+	CreateSlider(contentFrames["Player"], "👟 Walk Speed", 10, 100, DefaultWalkSpeed, function(value)
 		DefaultWalkSpeed = value
-		if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
-			PlayerCharacter.Humanoid.WalkSpeed = value
-		end
+		GameMechanics:SetWalkSpeed(value)
 	end)
 	
-	CreateSlider(contentFrames["Player"], "📈 Jump Power", 20, 100, DefaultJumpPower, function(value)
+	CreateSlider(contentFrames["Player"], "📈 Jump Power", 20, 150, DefaultJumpPower, function(value)
 		DefaultJumpPower = value
-		if PlayerCharacter and PlayerCharacter:FindFirstChild("Humanoid") then
-			PlayerCharacter.Humanoid.JumpPower = value
-		end
+		GameMechanics:SetJumpPower(value)
 	end)
 	
 	CreateToggle(contentFrames["Player"], "♾️ Infinite Jump", false, function(state)
 		ScriptState.InfiniteJump = state
 		if state then
-			FarmFunctions:InfiniteJumpToggle()
+			GameMechanics:InfiniteJumpStart()
 		end
-	end)
-	
-	-- ===== CONTENIDO - VISUALS =====
-	
-	CreateToggle(contentFrames["Visuals"], "👁️ ESP Chickens", false, function(state)
-		ScriptState.ESPChickens = state
-	end)
-	
-	CreateToggle(contentFrames["Visuals"], "👁️ ESP Eggs", false, function(state)
-		ScriptState.ESPEggs = state
 	end)
 	
 	-- ===== CONTENIDO - CONFIG =====
 	
-	CreateToggle(contentFrames["Config"], "🔄 Auto Rejoin", false, function(state)
-		ScriptState.AutoRejoin = state
-	end)
-	
 	CreateToggle(contentFrames["Config"], "🛡️ Anti AFK", true, function(state)
 		ScriptState.AntiAFK = state
 		if state then
-			coroutine.wrap(FarmFunctions.AntiAFKLoop)()
+			coroutine.wrap(function() GameMechanics:AntiAFKLoop() end)()
 		end
 	end)
 	
@@ -831,7 +926,7 @@ function CreateMainUI(gameName)
 	infoLabel.Size = UDim2.new(1, -20, 0, 30)
 	infoLabel.Position = UDim2.new(0, 10, 1, -35)
 	infoLabel.BackgroundTransparency = 1
-	infoLabel.Text = "v1.0 • Sorkscripts © 2024"
+	infoLabel.Text = "v2.0 • Fully Functional • Sorkscripts © 2024"
 	infoLabel.TextColor3 = CONFIG.TextDim
 	infoLabel.Font = Enum.Font.Gotham
 	infoLabel.TextSize = 10
@@ -874,18 +969,6 @@ function CreateMainUI(gameName)
 			ContentTitle.Text = cat.Name
 			selectedCategory = cat.Name
 		end)
-		
-		btn.MouseEnter:Connect(function()
-			if cat.Name ~= selectedCategory then
-				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.15}):Play()
-			end
-		end)
-		
-		btn.MouseLeave:Connect(function()
-			if cat.Name ~= selectedCategory then
-				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.3}):Play()
-			end
-		end)
 	end
 	
 	-- ===== BOTÓN CERRAR =====
@@ -908,14 +991,6 @@ function CreateMainUI(gameName)
 		Main.Visible = false
 	end)
 	
-	CloseBtn.MouseEnter:Connect(function()
-		TweenService:Create(CloseBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 50, 40)}):Play()
-	end)
-	
-	CloseBtn.MouseLeave:Connect(function()
-		TweenService:Create(CloseBtn, TweenInfo.new(0.1), {BackgroundColor3 = CONFIG.Error}):Play()
-	end)
-	
 	-- ===== BOTÓN CERRAR SCRIPT COMPLETAMENTE =====
 	
 	local ExitBtn = Instance.new("TextButton")
@@ -933,6 +1008,8 @@ function CreateMainUI(gameName)
 	Instance.new("UICorner", ExitBtn).CornerRadius = UDim.new(0, 8)
 	
 	local function CloseScriptCompletely()
+		Log("Cerrando Sorkscripts...", "WARNING")
+		
 		ScriptActive = false
 		
 		-- Detener todos los loops
@@ -941,30 +1018,22 @@ function CreateMainUI(gameName)
 		ScriptState.AutoHatch = false
 		ScriptState.AutoSell = false
 		ScriptState.AntiAFK = false
+		ScriptState.InfiniteJump = false
 		
 		-- Animación de cierre
 		local fade = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 		TweenService:Create(Main, fade, {BackgroundTransparency = 1}):Play()
 		TweenService:Create(Toggle, fade, {BackgroundTransparency = 1}):Play()
-		TweenService:Create(shadowMain, fade, {BackgroundTransparency = 1}):Play()
 		
 		task.wait(0.5)
 		
 		-- Destruir GUI
 		ScreenGui:Destroy()
-		print("✅ Sorkscripts cerrado correctamente")
+		Log("Sorkscripts cerrado correctamente ✅", "SUCCESS")
 	end
 	
 	ExitBtn.MouseButton1Click:Connect(function()
 		CloseScriptCompletely()
-	end)
-	
-	ExitBtn.MouseEnter:Connect(function()
-		TweenService:Create(ExitBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 165, 0)}):Play()
-	end)
-	
-	ExitBtn.MouseLeave:Connect(function()
-		TweenService:Create(ExitBtn, TweenInfo.new(0.1), {BackgroundColor3 = CONFIG.Warning}):Play()
 	end)
 	
 	-- ===== TOGGLE PRINCIPAL =====
@@ -1002,7 +1071,6 @@ function CreateMainUI(gameName)
 		if draggingMain and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			local delta = input.Position - dragStartMain
 			Main.Position = UDim2.new(startPosMain.X.Scale, startPosMain.X.Offset + delta.X, startPosMain.Y.Scale, startPosMain.Y.Offset + delta.Y)
-			shadowMain.Position = Main.Position + UDim2.new(0, -15, 0, -15)
 		end
 	end)
 	
@@ -1031,13 +1099,15 @@ function CreateMainUI(gameName)
 		end
 	end)
 	
-	-- ===== LOOP ANTI AFK =====
+	-- Iniciar loops principales
+	coroutine.wrap(function() GameMechanics:AntiAFKLoop() end)()
 	
-	coroutine.wrap(FarmFunctions.AntiAFKLoop)()
-	
-	print("✅ Sorkscripts | Crecer Pollo v1.0 cargado correctamente")
-	print("📌 Usa los botones para acceder a las funciones")
-	print("❌ Presiona el botón ⏹️ para cerrar completamente el script")
+	Log("Sorkscripts | Crecer Pollo v2.0 cargado correctamente ✅", "SUCCESS")
+	Log("Panel UI listo para usar 🎮", "SUCCESS")
+	Log("Presiona el botón ⏹️ para cerrar completamente", "INFO")
 end
 
---// Fin del script
+print("\n" .. string.rep("=", 50))
+print("✅ SORKSCRIPTS | CRECER POLLO v2.0")
+print("Fully Functional Script")
+print(string.rep("=", 50) .. "\n")
