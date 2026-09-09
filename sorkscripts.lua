@@ -5,13 +5,8 @@
 --// Script Completamente Funcional y Optimizado
 --// ====================================================
 
--- Esperar a que el juego cargue completamente
 repeat task.wait() until game:IsLoaded()
 task.wait(1)
-
--- ====================================================
--- SERVICIOS Y VARIABLES GLOBALES
--- ====================================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -20,24 +15,17 @@ local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerCharacter = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local PlayerHumanoid = PlayerCharacter:WaitForChild("Humanoid")
 local PlayerRootPart = PlayerCharacter:WaitForChild("HumanoidRootPart")
 
--- Variables de control del script
 local ScriptRunning = true
 local UICreated = false
 local CurrentLoops = {}
 
--- ====================================================
--- SISTEMA DE CONFIGURACIÓN
--- ====================================================
-
 local CONFIG = {
-	-- Colores
 	Background = Color3.fromRGB(18, 18, 22),
 	Sidebar = Color3.fromRGB(24, 24, 28),
 	Card = Color3.fromRGB(30, 30, 35),
@@ -52,7 +40,6 @@ local CONFIG = {
 	Warning = Color3.fromRGB(255, 193, 7),
 	Error = Color3.fromRGB(244, 67, 54),
 	
-	-- Configuración de gameplay
 	DefaultWalkSpeed = 16,
 	DefaultJumpPower = 50,
 	AutoFarmDelay = 0.3,
@@ -62,7 +49,6 @@ local CONFIG = {
 	AntiAFKDelay = 120,
 }
 
--- Estado del script
 local ScriptSettings = {
 	AutoFarm = false,
 	AutoCollectEggs = false,
@@ -80,10 +66,6 @@ local ScriptSettings = {
 	AntiAFK = true,
 }
 
--- ====================================================
--- SISTEMA DE LOGGING
--- ====================================================
-
 local LogSystem = {}
 
 function LogSystem:Print(message, type)
@@ -97,23 +79,8 @@ function LogSystem:Print(message, type)
 		DEBUG = "[🐛 DEBUG]",
 		GAME = "[🎮 GAME]",
 	}
-	
-	local color = {
-		INFO = "\27[36m",      -- Cyan
-		SUCCESS = "\27[32m",   -- Green
-		WARNING = "\27[33m",   -- Yellow
-		ERROR = "\27[31m",     -- Red
-		DEBUG = "\27[35m",     -- Magenta
-		GAME = "\27[34m",      -- Blue
-	}
-	
-	local reset = "\27[0m"
-	print(color[type] .. "[" .. timestamp .. "] " .. prefix[type] .. " " .. message .. reset)
+	print("[" .. timestamp .. "] " .. (prefix[type] or "[?]") .. " " .. message)
 end
-
--- ====================================================
--- SISTEMA DE BÚSQUEDA DE REMOTES
--- ====================================================
 
 local RemoteSystem = {}
 local CachedRemotes = {}
@@ -123,7 +90,6 @@ function RemoteSystem:FindRemote(name)
 		return CachedRemotes[name]
 	end
 	
-	-- Buscar en ReplicatedStorage
 	local remote = ReplicatedStorage:FindFirstChild(name)
 	if remote then
 		CachedRemotes[name] = remote
@@ -131,7 +97,6 @@ function RemoteSystem:FindRemote(name)
 		return remote
 	end
 	
-	-- Buscar en carpeta Remotes
 	local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
 	if remotesFolder then
 		remote = remotesFolder:FindFirstChild(name)
@@ -142,23 +107,12 @@ function RemoteSystem:FindRemote(name)
 		end
 	end
 	
-	-- Buscar recursivamente
-	for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-		if obj.Name == name and (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) then
-			CachedRemotes[name] = obj
-			LogSystem:Print("Remote encontrado (recursivo): " .. name, "SUCCESS")
-			return obj
-		end
-	end
-	
-	LogSystem:Print("Remote NO encontrado: " .. name, "WARNING")
 	return nil
 end
 
 function RemoteSystem:FireServer(remoteName, ...)
 	local remote = self:FindRemote(remoteName)
 	if not remote then
-		LogSystem:Print("No se puede disparar remote: " .. remoteName, "ERROR")
 		return false
 	end
 	
@@ -167,7 +121,6 @@ function RemoteSystem:FireServer(remoteName, ...)
 			remote:FireServer(...)
 		end)
 		if not ok then
-			LogSystem:Print("Error al disparar RemoteEvent: " .. err, "ERROR")
 			return false
 		end
 		return true
@@ -176,7 +129,6 @@ function RemoteSystem:FireServer(remoteName, ...)
 			return remote:InvokeServer(...)
 		end)
 		if not ok then
-			LogSystem:Print("Error al invocar RemoteFunction: " .. result, "ERROR")
 			return false
 		end
 		return true
@@ -184,10 +136,6 @@ function RemoteSystem:FireServer(remoteName, ...)
 	
 	return false
 end
-
--- ====================================================
--- SISTEMA DE DETECCIÓN DEL JUEGO
--- ====================================================
 
 local GameDetection = {}
 
@@ -201,7 +149,6 @@ function GameDetection:DetectGameElements()
 		farms = {},
 	}
 	
-	-- Buscar pollos
 	for _, obj in pairs(Workspace:GetDescendants()) do
 		if obj:IsA("Model") or obj:IsA("Part") then
 			local name = obj.Name:lower()
@@ -267,10 +214,6 @@ function GameDetection:GetClosestEgg(position)
 	return closest
 end
 
--- ====================================================
--- SISTEMA DE MECÁNICAS DEL JUEGO
--- ====================================================
-
 local GameMechanics = {}
 
 function GameMechanics:AutoFarmLoop()
@@ -283,15 +226,12 @@ function GameMechanics:AutoFarmLoop()
 		
 		pcall(function()
 			if PlayerCharacter and PlayerRootPart and PlayerHumanoid.Health > 0 then
-				-- Obtener pollo más cercano
 				local closestChicken = GameDetection:GetClosestChicken(PlayerRootPart.Position)
 				
 				if closestChicken then
-					-- Mover hacia el pollo
 					local targetPos = closestChicken.Position
 					PlayerRootPart.CFrame = CFrame.new(PlayerRootPart.Position, targetPos)
 					
-					-- Si está cerca, disparar evento de ataque
 					local distance = (PlayerRootPart.Position - targetPos).Magnitude
 					if distance < 15 then
 						RemoteSystem:FireServer("Attack", closestChicken)
@@ -319,11 +259,9 @@ function GameMechanics:AutoCollectEggsLoop()
 				local closestEgg = GameDetection:GetClosestEgg(PlayerRootPart.Position)
 				
 				if closestEgg then
-					-- Mover hacia el huevo
 					local eggPos = closestEgg.Position
 					PlayerRootPart.CFrame = CFrame.new(PlayerRootPart.Position, eggPos)
 					
-					-- Si está cerca, recopilar
 					local distance = (PlayerRootPart.Position - eggPos).Magnitude
 					if distance < 10 then
 						RemoteSystem:FireServer("CollectEgg", closestEgg)
@@ -394,10 +332,8 @@ function GameMechanics:AntiAFKLoop()
 		
 		pcall(function()
 			if PlayerCharacter and PlayerHumanoid then
-				-- Saltar para evitar AFK
 				PlayerHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
 				
-				-- Mover ligeramente
 				if PlayerRootPart then
 					PlayerRootPart.CFrame = PlayerRootPart.CFrame + Vector3.new(0, 0.1, 0)
 				end
@@ -447,19 +383,11 @@ function GameMechanics:SetJumpPower(power)
 	end)
 end
 
--- ====================================================
--- LIMPIAR GUI ANTERIOR
--- ====================================================
-
 pcall(function()
 	if CoreGui:FindFirstChild("SorkscriptsUI") then
 		CoreGui.SorkscriptsUI:Destroy()
 	end
 end)
-
--- ====================================================
--- CREAR PANTALLA DE CARGA
--- ====================================================
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SorkscriptsUI"
@@ -475,7 +403,6 @@ LoadingScreen.BorderSizePixel = 0
 LoadingScreen.Parent = ScreenGui
 LoadingScreen.ZIndex = 1000
 
--- Título de carga
 local LoadingTitle = Instance.new("TextLabel")
 LoadingTitle.Size = UDim2.new(1, 0, 0, 60)
 LoadingTitle.Position = UDim2.new(0, 0, 0.3, 0)
@@ -486,7 +413,6 @@ LoadingTitle.Font = Enum.Font.GothamBold
 LoadingTitle.TextSize = 40
 LoadingTitle.Parent = LoadingScreen
 
--- Subtítulo
 local LoadingSubtitle = Instance.new("TextLabel")
 LoadingSubtitle.Size = UDim2.new(1, 0, 0, 30)
 LoadingSubtitle.Position = UDim2.new(0, 0, 0.38, 0)
@@ -497,18 +423,16 @@ LoadingSubtitle.Font = Enum.Font.Gotham
 LoadingSubtitle.TextSize = 18
 LoadingSubtitle.Parent = LoadingScreen
 
--- Nombre del jugador
 local PlayerNameLabel = Instance.new("TextLabel")
 PlayerNameLabel.Size = UDim2.new(1, 0, 0, 25)
 PlayerNameLabel.Position = UDim2.new(0, 0, 0.42, 0)
-LoadingSubtitle.BackgroundTransparency = 1
+PlayerNameLabel.BackgroundTransparency = 1
 PlayerNameLabel.Text = "Jugador: " .. LocalPlayer.Name
 PlayerNameLabel.TextColor3 = CONFIG.Text
 PlayerNameLabel.Font = Enum.Font.Gotham
 PlayerNameLabel.TextSize = 14
 PlayerNameLabel.Parent = LoadingScreen
 
--- Estado de carga
 local LoadingStatus = Instance.new("TextLabel")
 LoadingStatus.Size = UDim2.new(1, 0, 0, 20)
 LoadingStatus.Position = UDim2.new(0, 0, 0.55, 0)
@@ -519,7 +443,6 @@ LoadingStatus.Font = Enum.Font.Gotham
 LoadingStatus.TextSize = 12
 LoadingStatus.Parent = LoadingScreen
 
--- Barra de progreso
 local ProgressBarBG = Instance.new("Frame")
 ProgressBarBG.Size = UDim2.new(0.3, 0, 0, 6)
 ProgressBarBG.Position = UDim2.new(0.35, 0, 0.5, 0)
@@ -537,7 +460,6 @@ ProgressBar.Parent = ProgressBarBG
 
 Instance.new("UICorner", ProgressBar).CornerRadius = UDim.new(1, 0)
 
--- Animar barra de progreso
 local progressTween = TweenService:Create(
 	ProgressBar,
 	TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
@@ -550,7 +472,6 @@ progressTween.Completed:Connect(function()
 	LoadingStatus.Text = "¡Listo para usar!"
 	task.wait(0.5)
 	
-	-- Fade out
 	local fadeOutTween = TweenService:Create(
 		LoadingScreen,
 		TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
@@ -565,23 +486,16 @@ progressTween.Completed:Connect(function()
 	end)
 end)
 
--- ====================================================
--- CREAR UI PRINCIPAL
--- ====================================================
-
 function CreateMainUI()
 	if UICreated then return end
 	UICreated = true
 	
 	LogSystem:Print("Creando interfaz principal...", "INFO")
 	
-	-- Obtener avatar del jugador
 	local avatarUrl = ""
 	pcall(function()
 		avatarUrl = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
 	end)
-	
-	-- ===== BOTÓN FLOTANTE =====
 	
 	local FloatingButton = Instance.new("ImageButton")
 	FloatingButton.Name = "FloatingButton"
@@ -600,7 +514,6 @@ function CreateMainUI()
 	FloatingButtonStroke.Thickness = 2
 	FloatingButtonStroke.Transparency = 0.3
 	
-	-- Efecto hover
 	FloatingButton.MouseEnter:Connect(function()
 		TweenService:Create(FloatingButtonStroke, TweenInfo.new(0.2), {Transparency = 0}):Play()
 	end)
@@ -608,8 +521,6 @@ function CreateMainUI()
 	FloatingButton.MouseLeave:Connect(function()
 		TweenService:Create(FloatingButtonStroke, TweenInfo.new(0.2), {Transparency = 0.3}):Play()
 	end)
-	
-	-- ===== PANEL PRINCIPAL =====
 	
 	local MainPanel = Instance.new("Frame")
 	MainPanel.Name = "MainPanel"
@@ -625,8 +536,6 @@ function CreateMainUI()
 	local MainPanelStroke = Instance.new("UIStroke", MainPanel)
 	MainPanelStroke.Color = Color3.fromRGB(50, 50, 60)
 	MainPanelStroke.Thickness = 1
-	
-	-- ===== HEADER =====
 	
 	local Header = Instance.new("Frame")
 	Header.Name = "Header"
@@ -659,8 +568,6 @@ function CreateMainUI()
 	HeaderStatus.TextXAlignment = Enum.TextXAlignment.Right
 	HeaderStatus.Parent = Header
 	
-	-- ===== SIDEBAR NAVEGACIÓN =====
-	
 	local Sidebar = Instance.new("Frame")
 	Sidebar.Name = "Sidebar"
 	Sidebar.Size = UDim2.new(0, 150, 1, -55)
@@ -679,8 +586,6 @@ function CreateMainUI()
 	SidebarLayout.Padding = UDim.new(0, 5)
 	SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	
-	-- ===== ÁREA DE CONTENIDO =====
-	
 	local ContentArea = Instance.new("Frame")
 	ContentArea.Name = "ContentArea"
 	ContentArea.Size = UDim2.new(1, -165, 1, -65)
@@ -698,7 +603,6 @@ function CreateMainUI()
 	ContentTitle.TextXAlignment = Enum.TextXAlignment.Left
 	ContentTitle.Parent = ContentArea
 	
-	-- Tabs y frames de contenido
 	local tabs = {
 		{name = "Inicio", icon = "🚀", order = 1},
 		{name = "Farm", icon = "🐔", order = 2},
@@ -730,8 +634,6 @@ function CreateMainUI()
 			frame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
 		end)
 	end
-	
-	-- ===== FUNCIÓN CREAR TOGGLE =====
 	
 	local function CreateToggle(parent, text, default, callback)
 		local container = Instance.new("Frame")
@@ -790,8 +692,6 @@ function CreateMainUI()
 		
 		return container
 	end
-	
-	-- ===== FUNCIÓN CREAR SLIDER =====
 	
 	local function CreateSlider(parent, text, minVal, maxVal, default, callback)
 		local container = Instance.new("Frame")
@@ -889,8 +789,6 @@ function CreateMainUI()
 		return container
 	end
 	
-	-- ===== CONTENIDO: INICIO =====
-	
 	CreateToggle(contentFrames["Inicio"], "🚀 Auto Farm", false, function(state)
 		ScriptSettings.AutoFarm = state
 		if state then
@@ -927,8 +825,6 @@ function CreateMainUI()
 		end
 	end)
 	
-	-- ===== CONTENIDO: FARM =====
-	
 	CreateToggle(contentFrames["Farm"], "⚔️ Auto Attack", false, function(state)
 		ScriptSettings.AutoFight = state
 	end)
@@ -940,8 +836,6 @@ function CreateMainUI()
 	CreateToggle(contentFrames["Farm"], "🔄 Auto Fuse", false, function(state)
 		ScriptSettings.AutoFuse = state
 	end)
-	
-	-- ===== CONTENIDO: JUGADOR =====
 	
 	CreateSlider(contentFrames["Jugador"], "👟 Walk Speed", 10, 100, CONFIG.DefaultWalkSpeed, function(value)
 		GameMechanics:SetWalkSpeed(value)
@@ -957,8 +851,6 @@ function CreateMainUI()
 			GameMechanics:InfiniteJumpStart()
 		end
 	end)
-	
-	-- ===== CONTENIDO: CONFIG =====
 	
 	CreateToggle(contentFrames["Config"], "🛡️ Anti AFK", true, function(state)
 		ScriptSettings.AntiAFK = state
@@ -979,8 +871,6 @@ function CreateMainUI()
 	infoText.TextSize = 9
 	infoText.Parent = contentFrames["Config"]
 	
-	-- ===== BOTONES DEL SIDEBAR =====
-	
 	for _, tab in ipairs(tabs) do
 		local btn = Instance.new("TextButton")
 		btn.Name = tab.name .. "Tab"
@@ -998,7 +888,6 @@ function CreateMainUI()
 		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 		
 		btn.MouseButton1Click:Connect(function()
-			-- Actualizar botones
 			for _, child in pairs(SidebarList:GetChildren()) do
 				if child:IsA("TextButton") then
 					child.BackgroundTransparency = 0.3
@@ -1010,7 +899,6 @@ function CreateMainUI()
 			btn.BackgroundColor3 = Color3.fromRGB(50, 35, 70)
 			btn.TextColor3 = CONFIG.Text
 			
-			-- Actualizar contenido
 			for tabName, frame in pairs(contentFrames) do
 				frame.Visible = (tabName == tab.name)
 			end
@@ -1030,8 +918,6 @@ function CreateMainUI()
 			end
 		end)
 	end
-	
-	-- ===== BOTÓN CERRAR PANEL =====
 	
 	local CloseButton = Instance.new("TextButton")
 	CloseButton.Name = "CloseButton"
@@ -1059,8 +945,6 @@ function CreateMainUI()
 		TweenService:Create(CloseButton, TweenInfo.new(0.1), {BackgroundColor3 = CONFIG.Error}):Play()
 	end)
 	
-	-- ===== BOTÓN CERRAR SCRIPT =====
-	
 	local ExitButton = Instance.new("TextButton")
 	ExitButton.Name = "ExitButton"
 	ExitButton.Size = UDim2.new(0, 35, 0, 35)
@@ -1078,7 +962,6 @@ function CreateMainUI()
 	local function ExitScript()
 		LogSystem:Print("Iniciando cierre del script...", "WARNING")
 		
-		-- Detener todos los procesos
 		ScriptRunning = false
 		ScriptSettings.AutoFarm = false
 		ScriptSettings.AutoCollectEggs = false
@@ -1087,14 +970,12 @@ function CreateMainUI()
 		ScriptSettings.AntiAFK = false
 		ScriptSettings.InfiniteJump = false
 		
-		-- Desconectar conexiones
 		for _, connection in pairs(CurrentLoops) do
 			if connection and connection.Connected then
 				connection:Disconnect()
 			end
 		end
 		
-		-- Fade out animation
 		local exitTween = TweenService:Create(
 			MainPanel,
 			TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
@@ -1121,35 +1002,29 @@ function CreateMainUI()
 		TweenService:Create(ExitButton, TweenInfo.new(0.1), {BackgroundColor3 = CONFIG.Warning}):Play()
 	end)
 	
-	-- ===== TOGGLE PANEL =====
-	
 	FloatingButton.MouseButton1Click:Connect(function()
 		MainPanel.Visible = not MainPanel.Visible
 	end)
-	
-	-- ===== ARRASTRAR PANEL =====
 	
 	local isDragging = false
 	local dragStart = nil
 	local startPos = nil
 	
-	Header.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			isDragging = true
-			dragStart = input.Position
-			startPos = MainPanel.Position
-		end
+	Header.MouseButton1Down:Connect(function()
+		isDragging = true
+		dragStart = UserInputService:GetMouseLocation()
+		startPos = MainPanel.Position
 	end)
 	
-	Header.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			isDragging = false
 		end
 	end)
 	
 	UserInputService.InputChanged:Connect(function(input)
-		if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			local delta = input.Position - dragStart
+		if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = UserInputService:GetMouseLocation() - dragStart
 			MainPanel.Position = UDim2.new(
 				startPos.X.Scale,
 				startPos.X.Offset + delta.X,
@@ -1159,29 +1034,25 @@ function CreateMainUI()
 		end
 	end)
 	
-	-- ===== ARRASTRAR BOTÓN FLOTANTE =====
-	
 	local isFloatingDragging = false
 	local floatingDragStart = nil
 	local floatingStartPos = nil
 	
-	FloatingButton.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			isFloatingDragging = true
-			floatingDragStart = input.Position
-			floatingStartPos = FloatingButton.Position
-		end
+	FloatingButton.MouseButton1Down:Connect(function()
+		isFloatingDragging = true
+		floatingDragStart = UserInputService:GetMouseLocation()
+		floatingStartPos = FloatingButton.Position
 	end)
 	
-	FloatingButton.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			isFloatingDragging = false
 		end
 	end)
 	
 	UserInputService.InputChanged:Connect(function(input)
-		if isFloatingDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			local delta = input.Position - floatingDragStart
+		if isFloatingDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = UserInputService:GetMouseLocation() - floatingDragStart
 			FloatingButton.Position = UDim2.new(
 				floatingStartPos.X.Scale,
 				floatingStartPos.X.Offset + delta.X,
@@ -1191,7 +1062,6 @@ function CreateMainUI()
 		end
 	end)
 	
-	-- Iniciar Anti AFK por defecto
 	coroutine.wrap(function()
 		GameMechanics:AntiAFKLoop()
 	end)()
@@ -1200,16 +1070,11 @@ function CreateMainUI()
 	LogSystem:Print("Script listo para usar - Presiona ⏹️ para cerrar", "INFO")
 end
 
--- ====================================================
--- DETECTOR DE CAMBIO DE PERSONAJE
--- ====================================================
-
 LocalPlayer.CharacterAdded:Connect(function(char)
 	PlayerCharacter = char
 	PlayerRootPart = char:WaitForChild("HumanoidRootPart")
 	PlayerHumanoid = char:WaitForChild("Humanoid")
 	
-	-- Aplicar configuración actual
 	if ScriptSettings.WalkSpeed > 0 then
 		GameMechanics:SetWalkSpeed(ScriptSettings.WalkSpeed)
 	end
@@ -1220,10 +1085,6 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 	LogSystem:Print("Nuevo personaje detectado", "GAME")
 end)
 
--- ====================================================
--- MANEJADOR DE ERRORES GLOBAL
--- ====================================================
-
 pcall(function()
 	game:GetService("RunService").Heartbeat:Connect(function()
 		if not ScriptRunning or not game then
@@ -1232,14 +1093,9 @@ pcall(function()
 	end)
 end)
 
--- ====================================================
--- INICIALIZACIÓN FINAL
--- ====================================================
-
 LogSystem:Print("Sorkscripts v3.0 inicializado", "SUCCESS")
 LogSystem:Print("Esperando que la pantalla de carga se complete...", "INFO")
 
--- El script está completamente cargado y funcional
 print("\n" .. string.rep("=", 60))
 print("✅ SORKSCRIPTS | CRECER POLLO v3.0 - FULLY FUNCTIONAL")
 print("Script completamente funcional y listo para usar")
