@@ -1,4 +1,4 @@
---// Sorkscripts | Complete & Undetected Edition
+--// Sorkscripts | Autonomous Farm & Clean Unload Edition
 --// Compatible con Executores Móviles (Delta, Fluxus, Hydrogen)
 
 local Players = game:GetService("Players")
@@ -22,7 +22,7 @@ end
 
 local TargetParent = gethui and gethui() or game:GetService("CoreGui")
 
--- Limpieza de ejecuciones anteriores
+-- Destrucción limpia si se vuelve a ejecutar
 for _, v in ipairs(TargetParent:GetChildren()) do
     if v:IsA("ScreenGui") and v:FindFirstChild("SorkMarker") then
         v:Destroy()
@@ -49,38 +49,59 @@ local CONFIG = {
     TextDim = Color3.fromRGB(140, 140, 150),
     ToggleOn = Color3.fromRGB(145, 70, 255),
     ToggleOff = Color3.fromRGB(60, 60, 70),
+    Danger = Color3.fromRGB(220, 60, 60)
 }
 
 -- Estados Globales del Script
+local ScriptRunning = true
 local States = {
     AutoFuse = false,
-    TargetChicken = "MEJOR (S+)",
+    TargetEgg = "Huevo Común",
+    AutoEgg = false,
     AutoTower = false,
     AutoReset = false,
-    AutoEat = false,
+    AutoFeeder = false,
     SafeSpeed = false,
     AntiAFK = true
 }
 
--- =====================================================
--- FUNCIÓN DE DISPARO SEGURO (SAFE REMOTE FIRE)
--- Busca remotas sin crash
--- =====================================================
-local function SafeFire(...)
+-- Lista de Huevos Disponibles
+local EggList = {"Huevo Común", "Huevo Raro", "Huevo Épico", "Huevo Mítico", "Huevo Legendario"}
+
+-- Helper para Invocar Remotas Dinámicas
+local function TryFireRemote(names, ...)
     local args = {...}
     pcall(function()
-        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-            if obj:IsA("RemoteEvent") then
-                local name = obj.Name:lower()
-                for _, arg in ipairs(args) do
-                    if typeof(arg) == "string" and name:find(arg:lower()) then
-                        obj:FireServer()
+        for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+            if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+                local objName = desc.Name:lower()
+                for _, n in ipairs(names) do
+                    if objName:find(n:lower()) then
+                        if desc:IsA("RemoteEvent") then
+                            desc:FireServer(unpack(args))
+                        elseif desc:IsA("RemoteFunction") then
+                            desc:InvokeServer(unpack(args))
+                        end
                         return
                     end
                 end
             end
         end
     end)
+end
+
+-- Movimiento Suave (Bypass Teleport Kick)
+local function SmoothMoveTo(targetCFrame)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        local dist = (hrp.Position - targetCFrame.Position).Magnitude
+        local speed = 40 -- Velocidad segura de interpolación
+        local tweenInfo = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
+        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+        tween:Play()
+        tween.Completed:Wait()
+    end
 end
 
 -- =====================================================
@@ -109,8 +130,8 @@ ts.Thickness = 2
 -- Frame Principal
 local Main = Instance.new("Frame")
 Main.Name = GenerateRandomName()
-Main.Size = UDim2.new(0, 480, 0, 340)
-Main.Position = UDim2.new(0.5, -240, 0.5, -170)
+Main.Size = UDim2.new(0, 480, 0, 350)
+Main.Position = UDim2.new(0.5, -240, 0.5, -175)
 Main.BackgroundColor3 = CONFIG.Background
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
@@ -119,7 +140,7 @@ Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 local mainStroke = Instance.new("UIStroke", Main)
 mainStroke.Color = Color3.fromRGB(50, 50, 60)
 
--- Sidebar (Menú Izquierdo)
+-- Sidebar
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 130, 1, 0)
 Sidebar.BackgroundColor3 = CONFIG.Sidebar
@@ -153,16 +174,16 @@ ContentArea.BackgroundTransparency = 1
 ContentArea.Parent = Main
 
 local ContentTitle = Instance.new("TextLabel")
-ContentTitle.Size = UDim2.new(1, 0, 0, 28)
+ContentTitle.Size = UDim2.new(1, -80, 0, 28)
 ContentTitle.BackgroundTransparency = 1
-ContentTitle.Text = "Fusiones"
+ContentTitle.Text = "Automatización"
 ContentTitle.TextColor3 = CONFIG.Text
 ContentTitle.Font = Enum.Font.GothamBold
 ContentTitle.TextSize = 16
 ContentTitle.TextXAlignment = Enum.TextXAlignment.Left
 ContentTitle.Parent = ContentArea
 
-local categories = {"Fusiones", "Progreso", "Ajustes"}
+local categories = {"Automatización", "Huevos", "Ajustes"}
 local contentFrames = {}
 
 for _, name in ipairs(categories) do
@@ -175,7 +196,7 @@ for _, name in ipairs(categories) do
     frame.ScrollBarImageColor3 = CONFIG.Accent
     frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     frame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    frame.Visible = (name == "Fusiones")
+    frame.Visible = (name == "Automatización")
     frame.Parent = ContentArea
     contentFrames[name] = frame
 
@@ -183,7 +204,7 @@ for _, name in ipairs(categories) do
     list.Padding = UDim.new(0, 6)
 end
 
--- Creador de Toggles
+-- Componentes UI (Toggle / Selector / Button)
 local function CreateToggle(parent, text, default, callback)
     local holder = Instance.new("Frame")
     holder.Size = UDim2.new(1, -10, 0, 34)
@@ -229,7 +250,6 @@ local function CreateToggle(parent, text, default, callback)
     end)
 end
 
--- Creador de Selectores
 local function CreateSelector(parent, title, options, callback)
     local holder = Instance.new("Frame")
     holder.Size = UDim2.new(1, -10, 0, 38)
@@ -268,33 +288,37 @@ local function CreateSelector(parent, title, options, callback)
 end
 
 -- =====================================================
--- CONTENIDO DE PESTAÑAS
+-- OPCIONES DE LAS PESTAÑAS
 -- =====================================================
 
--- Pestaña: Fusiones
-CreateToggle(contentFrames["Fusiones"], "Auto Fusionar Pollos", false, function(v)
-    States.AutoFuse = v
-end)
-
-CreateSelector(contentFrames["Fusiones"], "Pollo Objetivo:", {"MEJOR (S+)", "Eclipse Hen", "Ace Rooster", "Angel Chicken", "Reaper Rooster"}, function(selected)
-    States.TargetChicken = selected
-end)
-
--- Pestaña: Progreso
-CreateToggle(contentFrames["Progreso"], "Auto Subir Torre", false, function(v)
+-- Pestaña 1: Automatización
+CreateToggle(contentFrames["Automatización"], "Auto Subir Torre (Paso a Paso)", false, function(v)
     States.AutoTower = v
 end)
 
-CreateToggle(contentFrames["Progreso"], "Auto Reset / Rebirth", false, function(v)
+CreateToggle(contentFrames["Automatización"], "Auto Mejorar Comedores", false, function(v)
+    States.AutoFeeder = v
+end)
+
+CreateToggle(contentFrames["Automatización"], "Auto Reset (Segun Nivel Torre)", false, function(v)
     States.AutoReset = v
 end)
 
-CreateToggle(contentFrames["Progreso"], "Auto Comer / Alimentar", false, function(v)
-    States.AutoEat = v
+CreateToggle(contentFrames["Automatización"], "Auto Fusionar Pollos", false, function(v)
+    States.AutoFuse = v
 end)
 
--- Pestaña: Ajustes
-CreateToggle(contentFrames["Ajustes"], "Velocidad Ligera (Safe Speed)", false, function(v)
+-- Pestaña 2: Huevos
+CreateSelector(contentFrames["Huevos"], "Seleccionar Huevo:", EggList, function(selected)
+    States.TargetEgg = selected
+end)
+
+CreateToggle(contentFrames["Huevos"], "Auto Comprar / Abrir Huevo", false, function(v)
+    States.AutoEgg = v
+end)
+
+-- Pestaña 3: Ajustes
+CreateToggle(contentFrames["Ajustes"], "Velocidad Ligera (Safe CFrame)", false, function(v)
     States.SafeSpeed = v
 end)
 
@@ -306,10 +330,10 @@ end)
 for _, name in ipairs(categories) do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 32)
-    btn.BackgroundColor3 = (name == "Fusiones") and Color3.fromRGB(40, 35, 55) or Color3.fromRGB(0, 0, 0)
-    btn.BackgroundTransparency = (name == "Fusiones") and 0 or 1
+    btn.BackgroundColor3 = (name == "Automatización") and Color3.fromRGB(40, 35, 55) or Color3.fromRGB(0, 0, 0)
+    btn.BackgroundTransparency = (name == "Automatización") and 0 or 1
     btn.Text = "  " .. name
-    btn.TextColor3 = (name == "Fusiones") and CONFIG.Text or CONFIG.TextDim
+    btn.TextColor3 = (name == "Automatización") and CONFIG.Text or CONFIG.TextDim
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 12
     btn.TextXAlignment = Enum.TextXAlignment.Left
@@ -334,21 +358,46 @@ for _, name in ipairs(categories) do
     end)
 end
 
--- Botón de Cierre y Arrastre
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 24, 0, 24)
-CloseBtn.Position = UDim2.new(1, -30, 0, 8)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(50, 30, 40)
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 12
-CloseBtn.Parent = Main
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 5)
+-- CONTROLES SUPERIORES: MINIMIZAR Y CERRAR COMPLETAMENTE
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 24, 0, 24)
+MinimizeBtn.Position = UDim2.new(1, -58, 0, 8)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = CONFIG.Text
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.TextSize = 14
+MinimizeBtn.Parent = Main
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 5)
 
-CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
-ToggleBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
+local CloseScriptBtn = Instance.new("TextButton")
+CloseScriptBtn.Size = UDim2.new(0, 24, 0, 24)
+CloseScriptBtn.Position = UDim2.new(1, -30, 0, 8)
+CloseScriptBtn.BackgroundColor3 = CONFIG.Danger
+CloseScriptBtn.Text = "✕"
+CloseScriptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseScriptBtn.Font = Enum.Font.GothamBold
+CloseScriptBtn.TextSize = 12
+CloseScriptBtn.Parent = Main
+Instance.new("UICorner", CloseScriptBtn).CornerRadius = UDim.new(0, 5)
 
+-- Minimizar
+MinimizeBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+end)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    Main.Visible = not Main.Visible
+end)
+
+-- Apagar y Destruir el Script Por Completo
+CloseScriptBtn.MouseButton1Click:Connect(function()
+    ScriptRunning = false
+    ScreenGui:Destroy()
+    print("⛔ Sorkscripts | Script apagado y removido de la memoria.")
+end)
+
+-- Arrastre Táctil / Mouse
 local function EnableDrag(gui)
     local dragging, dragStart, startPos
     gui.InputBegan:Connect(function(input)
@@ -373,48 +422,109 @@ EnableDrag(Main)
 EnableDrag(ToggleBtn)
 
 -- =====================================================
--- BUCLES EN SEGUNDO PLANO (FUNCIONES ACTIVAS + SAFE)
+-- LÓGICA AUTÓNOMA (FARM + TORRE + COMEDORES + RESET)
 -- =====================================================
 
--- Bucle 1: Auto Fusión
-task.spawn(function()
-    while task.wait(2) do
-        if States.AutoFuse then
-            SafeFire("fuse", "merge", "combine")
+-- Obtenedor de Requisito de Torre
+local function GetRequiredTowerLevel()
+    local reqLevel = 25
+    pcall(function()
+        local stats = LocalPlayer:FindFirstChild("leaderstats") or LocalPlayer:FindFirstChild("Stats")
+        if stats then
+            local req = stats:FindFirstChild("TowerReq") or stats:FindFirstChild("RequiredLevel") or stats:FindFirstChild("RebirthReq")
+            if req then
+                reqLevel = tonumber(req.Value)
+            end
         end
-    end
-end)
+    end)
+    return reqLevel
+end
 
--- Bucle 2: Auto Torre
+-- Obtenedor de Nivel de Torre Actual
+local function GetCurrentTowerLevel()
+    local currentLevel = 0
+    pcall(function()
+        local stats = LocalPlayer:FindFirstChild("leaderstats") or LocalPlayer:FindFirstChild("Stats")
+        if stats then
+            local lvl = stats:FindFirstChild("TowerLevel") or stats:FindFirstChild("Floor") or stats:FindFirstChild("Level")
+            if lvl then
+                currentLevel = tonumber(lvl.Value)
+            end
+        end
+    end)
+    return currentLevel
+end
+
+-- Bucle 1: Auto Subir Torre por Marcadores y Remotas Seguras
 task.spawn(function()
-    while task.wait(3) do
+    while ScriptRunning do
+        task.wait(1.5)
         if States.AutoTower then
-            SafeFire("tower", "climb", "floor")
+            pcall(function()
+                local towerFolder = workspace:FindFirstChild("Tower") or workspace:FindFirstChild("Torre") or workspace:FindFirstChild("TowerFloors")
+                if towerFolder then
+                    local current = GetCurrentTowerLevel()
+                    local nextFloor = towerFolder:FindFirstChild("Floor_" .. tostring(current + 1)) or towerFolder:FindFirstChild(tostring(current + 1))
+                    if nextFloor then
+                        local pad = nextFloor:FindFirstChild("Touch") or nextFloor:FindFirstChild("Pad") or nextFloor:FindFirstChild("PrimaryPart") or nextFloor
+                        if pad:IsA("BasePart") then
+                            SmoothMoveTo(pad.CFrame + Vector3.new(0, 3, 0))
+                        end
+                    end
+                end
+                TryFireRemote({"tower", "climb", "floor", "subirtorre"})
+            end)
         end
     end
 end)
 
--- Bucle 3: Auto Reset
+-- Bucle 2: Auto Mejorar Comedores
 task.spawn(function()
-    while task.wait(4) do
+    while ScriptRunning do
+        task.wait(2)
+        if States.AutoFeeder then
+            TryFireRemote({"feeder", "food", "upgradefood", "upgradefeeder", "comedores", "mejorarcomida"})
+        end
+    end
+end)
+
+-- Bucle 3: Auto Reset (Evalúa si se alcanzó el nivel objetivo requerido)
+task.spawn(function()
+    while ScriptRunning do
+        task.wait(3)
         if States.AutoReset then
-            SafeFire("rebirth", "reset")
+            local current = GetCurrentTowerLevel()
+            local required = GetRequiredTowerLevel()
+            if current >= required then
+                TryFireRemote({"rebirth", "reset", "reinicio"})
+            end
         end
     end
 end)
 
--- Bucle 4: Auto Comer
+-- Bucle 4: Auto Comprar/Abrir Huevo Seleccionado
 task.spawn(function()
-    while task.wait(2.5) do
-        if States.AutoEat then
-            SafeFire("eat", "feed")
+    while ScriptRunning do
+        task.wait(2.5)
+        if States.AutoEgg then
+            TryFireRemote({"egg", "huevo", "buyegg", "openegg"}, States.TargetEgg)
         end
     end
 end)
 
--- Bucle 5: Velocidad Segura (Impulso CFrame indetectable por Anti-Cheat)
+-- Bucle 5: Auto Fusionar Pollos
+task.spawn(function()
+    while ScriptRunning do
+        task.wait(3)
+        if States.AutoFuse then
+            TryFireRemote({"fuse", "merge", "combine", "fusionar"})
+        end
+    end
+end)
+
+-- Impulso de Velocidad CFrame Segura
 RunService.Stepped:Connect(function()
-    if States.SafeSpeed then
+    if ScriptRunning and States.SafeSpeed then
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
@@ -426,9 +536,10 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- Bucle 6: Anti-AFK Pasivo
+-- Anti-AFK Pasivo de Cámara
 task.spawn(function()
-    while task.wait(300) do
+    while ScriptRunning do
+        task.wait(300)
         if States.AntiAFK then
             pcall(function()
                 local cam = workspace.CurrentCamera
@@ -440,4 +551,4 @@ task.spawn(function()
     end
 end)
 
-print("✅ Sorkscripts | Script Completo y Protegido Cargado Correctamente")
+print("✅ Sorkscripts | Autonomous Farm Loaded")
