@@ -54,12 +54,11 @@ local CONFIG = {
 }
 
 local ScriptRunning = true
-local ActiveGame = nil
+local ActiveGame = "Crecer Pollo"
 
 -- Estados Globales para Crecer Pollo
 local States = {
     AutoFuse = false,
-    TargetChicken = "MEJOR (S+)",
     TargetEgg = "Huevo Común",
     AutoEgg = false,
     AutoTower = false,
@@ -109,13 +108,14 @@ end
 local function FireGameRemote(keywords, ...)
     local remote = LocateRemote(keywords)
     if remote then
-        pcall(function()
+        pcall(function(...)
+            local args = {...}
             if remote:IsA("RemoteEvent") then
-                remote:FireServer(...)
+                remote:FireServer(unpack(args))
             elseif remote:IsA("RemoteFunction") then
-                remote:InvokeServer(...)
+                remote:InvokeServer(unpack(args))
             end
-        end)
+        end, ...)
         return true
     end
     return false
@@ -253,7 +253,7 @@ ContentArea.Parent = Main
 local ContentTitle = Instance.new("TextLabel")
 ContentTitle.Size = UDim2.new(1, -80, 0, 28)
 ContentTitle.BackgroundTransparency = 1
-ContentTitle.Text = "Seleccionar Juego"
+ContentTitle.Text = "Juegos"
 ContentTitle.TextColor3 = CONFIG.Text
 ContentTitle.Font = Enum.Font.GothamBold
 ContentTitle.TextSize = 16
@@ -528,8 +528,8 @@ task.spawn(function()
 
     for _, step in ipairs(steps) do
         LoaderStatus.Text = step.Text
-        TweenService:Create(BarFill, TweenInfo.new(0.4), {Size = UDim2.new(step.Progress, 0, 1, 0)}):Play()
-        task.wait(0.5)
+        TweenService:Create(BarFill, TweenInfo.new(0.3), {Size = UDim2.new(step.Progress, 0, 1, 0)}):Play()
+        task.wait(0.4)
     end
 
     LoaderFrame:Destroy()
@@ -541,7 +541,6 @@ end)
 -- BUCLES EN SEGUNDO PLANO (LÓGICA AUTOMÁTICA REAL)
 -- =====================================================
 
--- Lógica de Nivel y Requisitos
 local function GetCurrentTowerLevel()
     local lvl = 0
     pcall(function()
@@ -576,7 +575,7 @@ task.spawn(function()
     end
 end)
 
--- Bucle 2: Auto Subir Torre (Moverse + Evento)
+-- Bucle 2: Auto Subir Torre
 task.spawn(function()
     while ScriptRunning do
         task.wait(1.5)
